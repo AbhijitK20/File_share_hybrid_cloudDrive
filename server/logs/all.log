@@ -450,3 +450,49 @@
 2026-03-25 06:04:55:455 http: GET /api/dashboard/stats
 2026-03-25 06:04:55:455 http: GET /api/dashboard/files
 2026-03-25 06:04:55:455 http: GET /api/dashboard/stats
+2026-03-25 06:12:12:1212 info: ✅ Connected to MongoDB
+2026-03-25 06:12:12:1212 info: 🚀 Server running on http://localhost:5000
+2026-03-25 06:12:27:1227 info: ✅ Connected to MongoDB
+2026-03-25 06:12:27:1227 info: 🚀 Server running on http://localhost:5000
+2026-03-25 07:00:00:00 info: [CRON] Running expired file cleanup...
+2026-03-25 07:00:00:00 info: [CRON] Cleanup complete. Removed 0 expired file(s).
+2026-03-25 08:00:00:00 info: [CRON] Running expired file cleanup...
+2026-03-25 08:00:01:01 info: [CRON] Cleanup complete. Removed 0 expired file(s).
+2026-03-25 08:46:34:4634 info: ✅ Connected to MongoDB
+2026-03-25 08:46:34:4634 info: 🚀 Server running on http://localhost:5000
+2026-03-25 08:46:36:4636 info: ✅ Connected to MongoDB
+2026-03-25 08:46:36:4636 info: 🚀 Server running on http://localhost:5000
+2026-03-25 08:55:58:5558 info: ✅ Connected to MongoDB
+2026-03-25 08:55:58:5558 info: 🚀 Server running on http://localhost:5000
+2026-03-25 08:56:06:566 info: ✅ Connected to MongoDB
+2026-03-25 08:56:06:566 info: 🚀 Server running on http://localhost:5000
+2026-03-25 08:56:14:5614 info: ✅ Connected to MongoDB
+2026-03-25 08:56:14:5614 info: 🚀 Server running on http://localhost:5000
+2026-03-25 08:57:50:5750 info: ✅ Connected to MongoDB
+2026-03-25 08:57:50:5750 info: 🚀 Server running on http://localhost:5000
+2026-03-25 08:58:02:582 info: ✅ Connected to MongoDB
+2026-03-25 08:58:02:582 info: 🚀 Server running on http://localhost:5000
+2026-03-25 08:58:14:5814 info: ✅ Connected to MongoDB
+2026-03-25 08:58:14:5814 info: 🚀 Server running on http://localhost:5000
+2026-03-25 09:00:00:00 info: [CRON] Running expired file cleanup...
+2026-03-25 09:00:00:00 info: [CRON] Cleanup complete. Removed 0 expired file(s).
+2026-03-25 09:00:03:03 http: GET /api/auth/me
+2026-03-25 09:00:03:03 http: GET /api/auth/me
+2026-03-25 09:00:03:03 http: GET /api/dashboard/files
+2026-03-25 09:00:03:03 http: GET /api/dashboard/stats
+2026-03-25 09:00:03:03 http: GET /api/dashboard/files
+2026-03-25 09:00:03:03 http: GET /api/dashboard/stats
+2026-03-25 09:00:31:031 http: POST /api/auth/login
+2026-03-25 09:00:33:033 info: ✅ Connected to MongoDB
+2026-03-25 09:00:33:033 info: 🚀 Server running on http://localhost:5000
+2026-03-25 09:00:47:047 http: POST /api/auth/login
+2026-03-25 09:00:48:048 debug: Master key decrypted from storage
+2026-03-25 09:00:48:048 debug: [AUTH] Master key verified for user 69c32ac573ce0438eeb45525
+2026-03-25 09:00:48:048 http: GET /api/dashboard/stats
+2026-03-25 09:00:48:048 http: GET /api/dashboard/files
+2026-03-25 09:00:48:048 http: GET /api/dashboard/stats
+2026-03-25 09:00:48:048 http: GET /api/dashboard/files
+2026-03-25 09:00:56:056 http: POST /api/payment/create-order
+2026-03-25 09:00:57:057 info: [PAYMENT] Order created for user 69c32ac573ce0438eeb45525: order_SVJKoWojcv6gh2
+2026-03-25 09:27:09:279 info: ✅ Connected to MongoDB
+2026-03-25 09:27:09:279 info: 🚀 Server running on http://localhost:5000

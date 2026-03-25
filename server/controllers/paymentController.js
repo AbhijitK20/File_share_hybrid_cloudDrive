@@ -1,6 +1,7 @@
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const User = require('../models/User');
+const PaymentEvent = require('../models/PaymentEvent');
 const { logger } = require('../utils/logger');
 
 /**
@@ -32,6 +33,36 @@ const SUBSCRIPTION_PLANS = {
     interval: 'monthly', // billing interval
   },
 };
+
+function hashPayload(payload) {
+  return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+}
+
+async function applyPremiumForPayment({ userId, orderId, paymentId, source }) {
+  const user = await User.findById(userId);
+  if (!user) return { ok: false, status: 404, message: 'User not found' };
+
+  if (user.subscriptionStatus === 'active' && user.subscriptionEndDate && user.subscriptionEndDate > new Date()) {
+    return { ok: true, alreadyActive: true, user };
+  }
+
+  const subscriptionStartDate = new Date();
+  const subscriptionEndDate = new Date();
+  subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
+
+  user.plan = 'premium';
+  user.subscriptionId = orderId || paymentId || user.subscriptionId;
+  user.subscriptionStatus = 'active';
+  user.subscriptionStartDate = subscriptionStartDate;
+  user.subscriptionEndDate = subscriptionEndDate;
+  await user.save();
+
+  logger.info(
+    `[PAYMENT] User ${user._id} upgraded via ${source}. Ends: ${subscriptionEndDate.toISOString()}`
+  );
+
+  return { ok: true, alreadyActive: false, user };
+}
 
 /**
  * Create a new Razorpay Order for Premium Subscription
@@ -140,6 +171,28 @@ exports.verifyPayment = async (req, res) => {
       return res.status(400).json({ message: 'Missing payment verification data' });
     }
 
+    const duplicateVerify = await PaymentEvent.findOne({
+      eventType: 'payment.verify',
+      paymentId: razorpay_payment_id,
+    });
+    if (duplicateVerify) {
+      const user = await User.findById(userId).select('name email plan subscriptionStatus subscriptionEndDate');
+      return res.status(200).json({
+        success: true,
+        message: 'Payment already verified earlier',
+        user: user
+          ? {
+              id: user._id,
+              name: user.name,
+              email: user.email,
+              plan: user.plan,
+              subscriptionStatus: user.subscriptionStatus,
+              subscriptionEndDate: user.subscriptionEndDate,
+            }
+          : undefined,
+      });
+    }
+
     // Create the expected signature using HMAC SHA256
     const expectedSignature = crypto
       .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
@@ -165,31 +218,46 @@ exports.verifyPayment = async (req, res) => {
       });
     }
 
-    // Payment is verified successfully, upgrade user's plan
-    const user = await User.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+    if (payment.order_id !== razorpay_order_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment/order mismatch',
+      });
     }
 
-    // Update user subscription
-    const subscriptionStartDate = new Date();
-    const subscriptionEndDate = new Date();
-    subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1); // 1 month subscription
+    const paymentUserId = payment?.notes?.userId;
+    if (paymentUserId && paymentUserId !== String(userId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Payment does not belong to this user',
+      });
+    }
 
-    user.plan = 'premium';
-    user.subscriptionId = razorpay_order_id;
-    user.subscriptionStatus = 'active';
-    user.subscriptionStartDate = subscriptionStartDate;
-    user.subscriptionEndDate = subscriptionEndDate;
+    const applied = await applyPremiumForPayment({
+      userId,
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      source: 'verify-endpoint',
+    });
+    if (!applied.ok) {
+      return res.status(applied.status || 500).json({ message: applied.message || 'Payment apply failed' });
+    }
+    const user = applied.user;
 
-    await user.save();
-
-    logger.info(`[PAYMENT] User ${userId} upgraded to premium. Subscription ends: ${subscriptionEndDate}`);
+    await PaymentEvent.create({
+      eventId: `verify:${razorpay_payment_id}`,
+      paymentId: razorpay_payment_id,
+      orderId: razorpay_order_id,
+      userId,
+      eventType: 'payment.verify',
+      payloadHash: hashPayload({ razorpay_order_id, razorpay_payment_id }),
+    });
 
     res.status(200).json({
       success: true,
-      message: 'Payment verified and plan upgraded successfully!',
+      message: applied.alreadyActive
+        ? 'Payment verified. Premium plan already active.'
+        : 'Payment verified and plan upgraded successfully!',
       user: {
         id: user._id,
         name: user.name,
@@ -209,6 +277,69 @@ exports.verifyPayment = async (req, res) => {
   } catch (error) {
     logger.error('Error verifying Razorpay payment:', error);
     res.status(500).json({ message: 'Server error during payment verification', error: error.message });
+  }
+};
+
+/**
+ * Razorpay webhook handler (idempotent)
+ * POST /api/payment/webhook
+ */
+exports.handleWebhook = async (req, res) => {
+  try {
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    if (!secret) return res.status(500).json({ message: 'Webhook secret not configured' });
+
+    const bodyString = req.rawBody || JSON.stringify(req.body);
+    const signature = req.headers['x-razorpay-signature'];
+    const expected = crypto.createHmac('sha256', secret).update(bodyString).digest('hex');
+
+    if (!signature || signature !== expected) {
+      return res.status(400).json({ message: 'Invalid webhook signature' });
+    }
+
+    const eventId = req.body?.payload?.payment?.entity?.id
+      ? `${req.body.event}:${req.body.payload.payment.entity.id}`
+      : `${req.body.event}:${req.body?.created_at || Date.now()}`;
+
+    const existing = await PaymentEvent.findOne({ eventId });
+    if (existing) {
+      return res.status(200).json({ message: 'Event already processed' });
+    }
+
+    const eventType = req.body?.event;
+    const paymentEntity = req.body?.payload?.payment?.entity;
+    const orderEntity = req.body?.payload?.order?.entity;
+    const notes = paymentEntity?.notes || orderEntity?.notes || {};
+
+    let userId = notes.userId || null;
+    const orderId = paymentEntity?.order_id || orderEntity?.id || null;
+    const paymentId = paymentEntity?.id || null;
+
+    if (eventType === 'payment.captured' && userId) {
+      await applyPremiumForPayment({
+        userId,
+        orderId,
+        paymentId,
+        source: 'webhook',
+      });
+    }
+
+    await PaymentEvent.create({
+      eventId,
+      paymentId,
+      orderId,
+      userId: userId || null,
+      eventType,
+      payloadHash: hashPayload(req.body),
+    });
+
+    return res.status(200).json({ message: 'Webhook processed' });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(200).json({ message: 'Event already processed' });
+    }
+    logger.error(`[PAYMENT] Webhook error: ${error.message}`);
+    return res.status(500).json({ message: 'Webhook processing failed' });
   }
 };
 

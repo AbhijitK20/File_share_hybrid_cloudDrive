@@ -7,12 +7,19 @@ const fs = require('fs');
 const cron = require('node-cron');
 require('dotenv').config();
 
+const REQUIRED_ENV = ['MONGO_URI', 'JWT_SECRET'];
+const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k]);
+if (missingEnv.length > 0) {
+  throw new Error(`Missing required environment variables: ${missingEnv.join(', ')}`);
+}
+
 const fileRoutes = require('./routes/fileRoutes');
 const authRoutes = require('./routes/authRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const File = require('./models/File');
 const { logger } = require('./utils/logger');
+const { requestSecurityGuard } = require('./middleware/securityGuard');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -61,9 +68,21 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// Keep raw payload for Razorpay webhook signature verification
+app.use(
+  '/api/payment/webhook',
+  express.json({
+    limit: '2mb',
+    verify: (req, _res, buf) => {
+      req.rawBody = buf.toString('utf8');
+    },
+  })
+);
+
 // Body parsing middleware with size limits
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(requestSecurityGuard);
 
 // Request logging middleware
 app.use((req, res, next) => {

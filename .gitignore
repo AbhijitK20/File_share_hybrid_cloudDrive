@@ -19,3 +19,18 @@ yarn-error.log*
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Test results
+node_modules/
+client/node_modules/
+server/node_modules/
+client/dist/
+server/uploads/
+server/logs/
+*.log
+server/test_results.json
+server/DEBUG_TEST.js
+server/FULL_TEST.js
+.env
+server/.env
+client/.env

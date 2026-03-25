@@ -1,6 +1,7 @@
 const path = require('path');
 const FileType = require('file-type');
 const fs = require('fs');
+const { scanFile } = require('../utils/malwareScan');
 
 // Whitelist of allowed MIME types (configurable)
 const ALLOWED_MIMETYPES = [
@@ -118,6 +119,17 @@ async function validateFile(file) {
       isValid: false, 
       error: `Double extension detected (${doubleExt}${fileExt}), not allowed` 
     };
+  }
+
+  // 6. Optional malware scan
+  if (file.path) {
+    const scan = await scanFile(file.path);
+    if (scan.scanned && !scan.clean) {
+      return {
+        isValid: false,
+        error: `Malware detected: ${scan.reason}`,
+      };
+    }
   }
 
   return { isValid: true, error: null };
