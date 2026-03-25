@@ -33,6 +33,10 @@ export default function Dashboard() {
   const [extending, setExtending] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [toggling, setToggling] = useState(null);
+  const [shareEmail, setShareEmail] = useState('');
+  const [sharePermission, setSharePermission] = useState('view');
+  const [sharingFileId, setSharingFileId] = useState(null);
+  const [activityByFile, setActivityByFile] = useState({});
 
   useEffect(() => {
     fetchData();
@@ -96,6 +100,32 @@ export default function Dashboard() {
       alert(err.response?.data?.message || 'Failed to update visibility');
     } finally {
       setToggling(null);
+    }
+  };
+
+  const handleShareByEmail = async (fileId) => {
+    if (!shareEmail) return;
+    try {
+      await api.patch(`/dashboard/files/${fileId}/access`, { mode: 'allowlist' });
+      await api.post(`/dashboard/files/${fileId}/allowlist`, {
+        email: shareEmail,
+        permissions: sharePermission === 'edit' ? ['view', 'edit'] : ['view'],
+      });
+      alert('Shared successfully');
+      setShareEmail('');
+      setSharingFileId(null);
+      await fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to share file');
+    }
+  };
+
+  const loadActivity = async (fileId) => {
+    try {
+      const res = await api.get(`/dashboard/files/${fileId}/activity`);
+      setActivityByFile((prev) => ({ ...prev, [fileId]: res.data }));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to load activity');
     }
   };
 
@@ -198,87 +228,159 @@ export default function Dashboard() {
           ) : (
             <div className="divide-y divide-white/5">
               {files.map((file, i) => (
-                <motion.div
-                  key={file.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="p-4 px-5 flex items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors"
-                >
-                  {/* File info */}
-                  <div className="flex items-center gap-4 min-w-0 flex-1">
-                    <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-                      <HiDocumentText className="text-brand-400" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-white font-medium truncate text-sm">{file.name}</p>
-                      <div className="flex items-center gap-3 mt-0.5">
-                        <span className="text-white/30 text-xs">{formatSize(file.size)}</span>
-                        <span className="text-white/30 text-xs text-center w-[80px]">Code: {file.groupCode}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
-                          isExpired(file.expiresAt)
-                            ? 'bg-red-500/10 text-red-400'
-                            : 'bg-green-500/10 text-green-400'
-                        }`}>
-                          {isExpired(file.expiresAt) ? 'Expired' : `Expires ${formatDate(file.expiresAt)}`}
-                        </span>
-                        
-                        {/* Visibility Toggle Badge */}
-                        <button
-                          onClick={() => handleToggleVisibility(file.id, file.visibility || 'public')}
-                          disabled={toggling === file.id}
-                          className={`flex items-center justify-center gap-1 text-xs px-2 py-0.5 rounded-full transition-colors disabled:opacity-50 w-[80px] ${
-                            (file.visibility || 'public') === 'private'
-                              ? 'bg-purple-500/10 text-purple-400 hover:bg-purple-500/20'
-                              : 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20'
-                          }`}
-                          title={`Click to make ${(file.visibility || 'public') === 'private' ? 'Public' : 'Private'}`}
-                        >
-                          {toggling === file.id ? (
-                            <div className="w-3 h-3 border border-white/20 border-t-white rounded-full animate-spin" />
-                          ) : (file.visibility || 'public') === 'private' ? (
-                            <><HiEyeOff /> Private</>
-                          ) : (
-                            <><HiEye /> Public</>
-                          )}
-                        </button>
+                <div key={file.id}>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="p-4 px-5 flex items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors"
+                  >
+                    <div className="flex items-center gap-4 min-w-0 flex-1">
+                      <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
+                        <HiDocumentText className="text-brand-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-white font-medium truncate text-sm">{file.name}</p>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="text-white/30 text-xs">{formatSize(file.size)}</span>
+                          <span className="text-white/30 text-xs text-center w-[80px]">Code: {file.groupCode}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
+                            isExpired(file.expiresAt)
+                              ? 'bg-red-500/10 text-red-400'
+                              : 'bg-green-500/10 text-green-400'
+                          }`}>
+                            {isExpired(file.expiresAt) ? 'Expired' : `Expires ${formatDate(file.expiresAt)}`}
+                          </span>
+                          <button
+                            onClick={() => handleToggleVisibility(file.id, file.visibility || 'public')}
+                            disabled={toggling === file.id}
+                            className={`flex items-center justify-center gap-1 text-xs px-2 py-0.5 rounded-full transition-colors disabled:opacity-50 w-[80px] ${
+                              (file.visibility || 'public') === 'private'
+                                ? 'bg-purple-500/10 text-purple-400 hover:bg-purple-500/20'
+                                : 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20'
+                            }`}
+                            title={`Click to make ${(file.visibility || 'public') === 'private' ? 'Public' : 'Private'}`}
+                          >
+                            {toggling === file.id ? (
+                              <div className="w-3 h-3 border border-white/20 border-t-white rounded-full animate-spin" />
+                            ) : (file.visibility || 'public') === 'private' ? (
+                              <><HiEyeOff /> Private</>
+                            ) : (
+                              <><HiEye /> Public</>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {/* Extend */}
-                    {!isExpired(file.expiresAt) && (
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <button
-                        onClick={() => handleExtend(file.id)}
-                        disabled={extending === file.id}
-                        className="p-2 rounded-lg hover:bg-white/5 text-white/40 hover:text-blue-400 transition-all disabled:opacity-30"
-                        title="Extend by 7 days"
+                        onClick={() => setSharingFileId(sharingFileId === file.id ? null : file.id)}
+                        className="p-2 rounded-lg hover:bg-white/5 text-white/40 hover:text-brand-400 transition-all"
+                        title="Share with specific email"
                       >
-                        {extending === file.id ? (
-                          <div className="w-4 h-4 border-2 border-white/20 border-t-blue-400 rounded-full animate-spin" />
+                        <HiShare className="text-lg" />
+                      </button>
+                      <button
+                        onClick={() => loadActivity(file.id)}
+                        className="p-2 rounded-lg hover:bg-white/5 text-white/40 hover:text-green-400 transition-all"
+                        title="Load sharing & activity"
+                      >
+                        <HiEye className="text-lg" />
+                      </button>
+                      {!isExpired(file.expiresAt) && (
+                        <button
+                          onClick={() => handleExtend(file.id)}
+                          disabled={extending === file.id}
+                          className="p-2 rounded-lg hover:bg-white/5 text-white/40 hover:text-blue-400 transition-all disabled:opacity-30"
+                          title="Extend by 7 days"
+                        >
+                          {extending === file.id ? (
+                            <div className="w-4 h-4 border-2 border-white/20 border-t-blue-400 rounded-full animate-spin" />
+                          ) : (
+                            <HiClock className="text-lg" />
+                          )}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDelete(file.id)}
+                        disabled={deleting === file.id}
+                        className="p-2 rounded-lg hover:bg-red-500/10 text-white/40 hover:text-red-400 transition-all disabled:opacity-30"
+                        title="Delete file"
+                      >
+                        {deleting === file.id ? (
+                          <div className="w-4 h-4 border-2 border-white/20 border-t-red-400 rounded-full animate-spin" />
                         ) : (
-                          <HiClock className="text-lg" />
+                          <HiTrash className="text-lg" />
                         )}
                       </button>
-                    )}
+                    </div>
+                  </motion.div>
 
-                    {/* Delete */}
-                    <button
-                      onClick={() => handleDelete(file.id)}
-                      disabled={deleting === file.id}
-                      className="p-2 rounded-lg hover:bg-red-500/10 text-white/40 hover:text-red-400 transition-all disabled:opacity-30"
-                      title="Delete file"
-                    >
-                      {deleting === file.id ? (
-                        <div className="w-4 h-4 border-2 border-white/20 border-t-red-400 rounded-full animate-spin" />
-                      ) : (
-                        <HiTrash className="text-lg" />
-                      )}
-                    </button>
-                  </div>
-                </motion.div>
+                  {sharingFileId === file.id && (
+                    <div className="px-5 pb-4 flex flex-col md:flex-row gap-2 items-stretch md:items-center w-full">
+                      <input
+                        type="email"
+                        placeholder="user@gmail.com"
+                        className="input-field flex-1"
+                        value={shareEmail}
+                        onChange={(e) => setShareEmail(e.target.value)}
+                      />
+                      <select
+                        className="input-field md:w-40"
+                        value={sharePermission}
+                        onChange={(e) => setSharePermission(e.target.value)}
+                      >
+                        <option value="view">View</option>
+                        <option value="edit">Edit</option>
+                      </select>
+                      <button className="btn-primary md:w-36" onClick={() => handleShareByEmail(file.id)}>
+                        Add Access
+                      </button>
+                    </div>
+                  )}
+                  {activityByFile[file.id] && (
+                    <div className="px-5 pb-4 space-y-3">
+                      <div className="text-xs text-white/60">
+                        Shared with: <span className="text-white">{activityByFile[file.id].summary?.sharedWithCount || 0}</span> |
+                        Viewed by: <span className="text-white"> {activityByFile[file.id].summary?.viewedByCount || 0}</span> |
+                        Edited by: <span className="text-white"> {activityByFile[file.id].summary?.editedByCount || 0}</span>
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <div className="bg-white/5 rounded-xl p-3">
+                          <p className="text-sm text-white font-medium mb-2">People you shared with</p>
+                          <div className="space-y-1">
+                            {(activityByFile[file.id].sharedWith || []).map((p) => (
+                              <div key={`${file.id}-s-${p.userId}`} className="text-xs text-white/70">
+                                {p.email} ({(p.permissions || []).join(', ')})
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="bg-white/5 rounded-xl p-3">
+                          <p className="text-sm text-white font-medium mb-2">People who viewed</p>
+                          <div className="space-y-1">
+                            {(activityByFile[file.id].viewedBy || []).map((p) => (
+                              <div key={`${file.id}-v-${p.userId}`} className="text-xs text-white/70">
+                                {p.email || p.name} (views: {p.count})
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-white/5 rounded-xl p-3">
+                        <p className="text-sm text-white font-medium mb-2">Activity timeline</p>
+                        <div className="max-h-40 overflow-y-auto space-y-1">
+                          {(activityByFile[file.id].activityLogs || []).map((a, idx) => (
+                            <div key={`${file.id}-a-${idx}`} className="text-xs text-white/70">
+                              [{new Date(a.at).toLocaleString()}] {a.email || a.name}: {a.action} {a.details ? `- ${a.details}` : ''}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}

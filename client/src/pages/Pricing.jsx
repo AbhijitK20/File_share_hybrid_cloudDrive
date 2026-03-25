@@ -72,7 +72,12 @@ export default function Pricing() {
 
     } catch (err) {
       console.error('Failed to initiate payment:', err);
-      alert('Failed to initiate payment. Please try again later.');
+      const serverMsg =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to initiate payment';
+      alert(serverMsg);
       setUpgrading(false);
     }
   };

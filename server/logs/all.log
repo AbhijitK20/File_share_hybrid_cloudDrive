@@ -1,0 +1,452 @@
+2026-03-25 04:29:02:292 info: ✅ Connected to MongoDB
+2026-03-25 04:29:02:292 info: 🚀 Server running on http://localhost:5000
+2026-03-25 04:29:20:2920 http: POST /api/auth/login
+2026-03-25 04:29:55:2955 error: Unhandled error: Expected property name or '}' in JSON at position 1 (line 1 column 2)
+2026-03-25 04:30:58:3058 http: POST /api/auth/register
+2026-03-25 04:30:58:3058 debug: Master key generated successfully
+2026-03-25 04:30:58:3058 debug: Master key encrypted for storage
+2026-03-25 04:30:59:3059 info: [AUTH] New user registered: 69c317aa0200caa419b011bc with encryption enabled
+2026-03-25 04:32:06:326 http: POST /api/auth/register
+2026-03-25 04:32:06:326 debug: Master key generated successfully
+2026-03-25 04:32:06:326 debug: Master key encrypted for storage
+2026-03-25 04:32:06:326 info: [AUTH] New user registered: 69c317ee0200caa419b011bf with encryption enabled
+2026-03-25 04:32:07:327 http: GET /api/dashboard/files
+2026-03-25 04:32:07:327 http: GET /api/dashboard/stats
+2026-03-25 04:32:07:327 http: GET /api/dashboard/files
+2026-03-25 04:32:07:327 http: GET /api/dashboard/stats
+2026-03-25 04:32:17:3217 http: POST /api/files/upload
+2026-03-25 04:32:17:3217 debug: Master key decrypted from storage
+2026-03-25 04:32:17:3217 error: Error generating file key: The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of ArrayBuffer
+2026-03-25 04:32:17:3217 warn: Could not retrieve master key for user 69c317ee0200caa419b011bf:
+2026-03-25 04:32:17:3217 debug: File compressed with GZIP: 3.05% reduction
+2026-03-25 04:32:17:3217 info: [COMPRESSION] Resume_AbhijitKapure.pdf: 82.99 KB → 80.46 KB (3.05% saved)
+2026-03-25 04:32:17:3217 info: [UPLOAD] File saved: Resume_AbhijitKapure.pdf | Compression: Yes | Encryption: No
+2026-03-25 04:32:17:3217 info: FILE_UPLOADED
+2026-03-25 04:32:20:3220 http: GET /api/dashboard/files
+2026-03-25 04:32:20:3220 http: GET /api/dashboard/stats
+2026-03-25 04:32:20:3220 http: GET /api/dashboard/files
+2026-03-25 04:32:20:3220 http: GET /api/dashboard/stats
+2026-03-25 04:32:33:3233 http: GET /api/dashboard/files
+2026-03-25 04:32:33:3233 http: GET /api/dashboard/stats
+2026-03-25 04:32:33:3233 http: GET /api/dashboard/files
+2026-03-25 04:32:33:3233 http: GET /api/dashboard/stats
+2026-03-25 04:32:34:3234 http: GET /api/dashboard/files
+2026-03-25 04:32:34:3234 http: GET /api/dashboard/stats
+2026-03-25 04:32:34:3234 http: GET /api/dashboard/files
+2026-03-25 04:32:34:3234 http: GET /api/dashboard/stats
+2026-03-25 04:33:50:3350 info: ✅ Connected to MongoDB
+2026-03-25 04:33:50:3350 info: 🚀 Server running on http://localhost:5000
+2026-03-25 04:35:22:3522 http: GET /api/auth/me
+2026-03-25 04:35:22:3522 http: GET /api/auth/me
+2026-03-25 04:35:22:3522 http: GET /api/dashboard/files
+2026-03-25 04:35:22:3522 http: GET /api/dashboard/stats
+2026-03-25 04:35:22:3522 http: GET /api/dashboard/files
+2026-03-25 04:35:22:3522 http: GET /api/dashboard/stats
+2026-03-25 04:35:24:3524 http: PATCH /api/dashboard/files/69c317f90200caa419b011d1/visibility
+2026-03-25 04:35:26:3526 http: PATCH /api/dashboard/files/69c317f90200caa419b011d1/visibility
+2026-03-25 04:35:26:3526 http: PATCH /api/dashboard/files/69c317f90200caa419b011d1/visibility
+2026-03-25 04:35:27:3527 http: PATCH /api/dashboard/files/69c317f90200caa419b011d1/visibility
+2026-03-25 04:35:32:3532 http: PATCH /api/dashboard/files/69c317f90200caa419b011d1/visibility
+2026-03-25 04:35:33:3533 http: PATCH /api/dashboard/files/69c317f90200caa419b011d1/visibility
+2026-03-25 04:35:37:3537 http: POST /api/payment/create-order
+2026-03-25 04:35:37:3537 error: Error creating Razorpay order:
+2026-03-25 04:36:33:3633 info: ✅ Connected to MongoDB
+2026-03-25 04:36:33:3633 info: 🚀 Server running on http://localhost:5000
+2026-03-25 04:36:35:3635 info: ✅ Connected to MongoDB
+2026-03-25 04:36:35:3635 info: 🚀 Server running on http://localhost:5000
+2026-03-25 04:36:42:3642 info: ✅ Connected to MongoDB
+2026-03-25 04:36:42:3642 info: 🚀 Server running on http://localhost:5000
+2026-03-25 04:37:02:372 info: ✅ Connected to MongoDB
+2026-03-25 04:37:02:372 info: 🚀 Server running on http://localhost:5000
+2026-03-25 04:37:15:3715 info: ✅ Connected to MongoDB
+2026-03-25 04:37:15:3715 info: 🚀 Server running on http://localhost:5000
+2026-03-25 04:37:24:3724 info: ✅ Connected to MongoDB
+2026-03-25 04:37:24:3724 info: 🚀 Server running on http://localhost:5000
+2026-03-25 04:37:46:3746 info: ✅ Connected to MongoDB
+2026-03-25 04:37:46:3746 info: 🚀 Server running on http://localhost:5000
+2026-03-25 04:50:42:5042 info: ✅ Connected to MongoDB
+2026-03-25 04:50:42:5042 info: 🚀 Server running on http://localhost:5000
+2026-03-25 04:50:44:5044 info: ✅ Connected to MongoDB
+2026-03-25 04:50:44:5044 info: 🚀 Server running on http://localhost:5000
+2026-03-25 04:50:49:5049 http: GET /api/health
+2026-03-25 04:50:49:5049 http: GET /api/health
+2026-03-25 04:50:49:5049 http: POST /api/auth/register
+2026-03-25 04:50:49:5049 http: POST /api/auth/register
+2026-03-25 04:50:49:5049 debug: Master key generated successfully
+2026-03-25 04:50:49:5049 debug: Master key encrypted for storage
+2026-03-25 04:50:50:5050 info: [AUTH] New user registered: 69c31c519030f9b3af0f8591 with encryption enabled
+2026-03-25 04:50:50:5050 http: POST /api/auth/register
+2026-03-25 04:50:50:5050 debug: Master key generated successfully
+2026-03-25 04:50:50:5050 debug: Master key encrypted for storage
+2026-03-25 04:50:50:5050 info: [AUTH] New user registered: 69c31c529030f9b3af0f8594 with encryption enabled
+2026-03-25 04:50:50:5050 http: POST /api/auth/login
+2026-03-25 04:50:51:5051 debug: Master key decrypted from storage
+2026-03-25 04:50:51:5051 debug: [AUTH] Master key verified for user 69c31c519030f9b3af0f8591
+2026-03-25 04:50:51:5051 http: POST /api/auth/login
+2026-03-25 04:50:51:5051 http: GET /api/files
+2026-03-25 04:50:51:5051 http: GET /api/auth/me
+2026-03-25 04:50:51:5051 http: GET /api/payment/status
+2026-03-25 04:50:51:5051 http: GET /api/payment/plans
+2026-03-25 04:52:01:521 info: ✅ Connected to MongoDB
+2026-03-25 04:52:01:521 info: 🚀 Server running on http://localhost:5000
+2026-03-25 04:53:42:5342 http: GET /api/health
+2026-03-25 04:53:42:5342 http: GET /api/health
+2026-03-25 04:53:42:5342 http: POST /api/auth/register
+2026-03-25 04:53:42:5342 http: POST /api/auth/register
+2026-03-25 04:53:42:5342 debug: Master key generated successfully
+2026-03-25 04:53:42:5342 debug: Master key encrypted for storage
+2026-03-25 04:53:43:5343 info: [AUTH] New user registered: 69c31cfebb6a2f7e001bded5 with encryption enabled
+2026-03-25 04:53:43:5343 http: POST /api/auth/register
+2026-03-25 04:53:43:5343 debug: Master key generated successfully
+2026-03-25 04:53:43:5343 debug: Master key encrypted for storage
+2026-03-25 04:53:43:5343 info: [AUTH] New user registered: 69c31cffbb6a2f7e001bded8 with encryption enabled
+2026-03-25 04:53:43:5343 http: POST /api/auth/login
+2026-03-25 04:53:44:5344 debug: Master key decrypted from storage
+2026-03-25 04:53:44:5344 debug: [AUTH] Master key verified for user 69c31cfebb6a2f7e001bded5
+2026-03-25 04:53:44:5344 http: POST /api/auth/login
+2026-03-25 04:53:44:5344 http: GET /api/dashboard/files
+2026-03-25 04:53:44:5344 http: GET /api/auth/me
+2026-03-25 04:53:44:5344 http: GET /api/payment/status
+2026-03-25 04:53:44:5344 http: GET /api/payment/plans
+2026-03-25 04:54:11:5411 http: POST /api/auth/login
+2026-03-25 04:54:18:5418 http: GET /api/auth/me
+2026-03-25 04:54:18:5418 http: GET /api/auth/me
+2026-03-25 04:54:20:5420 http: GET /api/dashboard/files
+2026-03-25 04:54:20:5420 http: GET /api/dashboard/stats
+2026-03-25 04:54:20:5420 http: GET /api/dashboard/files
+2026-03-25 04:54:20:5420 http: GET /api/dashboard/stats
+2026-03-25 04:54:22:5422 http: PATCH /api/dashboard/files/69c317f90200caa419b011d1/visibility
+2026-03-25 04:54:23:5423 http: PATCH /api/dashboard/files/69c317f90200caa419b011d1/visibility
+2026-03-25 04:54:27:5427 http: POST /api/payment/create-order
+2026-03-25 04:54:28:5428 error: Error creating Razorpay order:
+2026-03-25 04:54:34:5434 http: GET /api/dashboard/files
+2026-03-25 04:54:34:5434 http: GET /api/dashboard/stats
+2026-03-25 04:54:34:5434 http: GET /api/dashboard/files
+2026-03-25 04:54:34:5434 http: GET /api/dashboard/stats
+2026-03-25 04:54:37:5437 http: PATCH /api/dashboard/files/69c317f90200caa419b011d1/extend
+2026-03-25 04:54:37:5437 http: PATCH /api/dashboard/files/69c317f90200caa419b011d1/extend
+2026-03-25 04:54:38:5438 http: PATCH /api/dashboard/files/69c317f90200caa419b011d1/extend
+2026-03-25 04:54:40:5440 http: PATCH /api/dashboard/files/69c317f90200caa419b011d1/extend
+2026-03-25 04:54:40:5440 http: PATCH /api/dashboard/files/69c317f90200caa419b011d1/extend
+2026-03-25 04:54:40:5440 http: PATCH /api/dashboard/files/69c317f90200caa419b011d1/extend
+2026-03-25 04:54:40:5440 http: PATCH /api/dashboard/files/69c317f90200caa419b011d1/extend
+2026-03-25 04:54:44:5444 http: POST /api/payment/create-order
+2026-03-25 04:54:44:5444 error: Error creating Razorpay order:
+2026-03-25 04:59:04:594 info: ✅ Connected to MongoDB
+2026-03-25 04:59:04:594 info: 🚀 Server running on http://localhost:5000
+2026-03-25 04:59:06:596 info: ✅ Connected to MongoDB
+2026-03-25 04:59:06:596 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:00:00:00 info: [CRON] Running expired file cleanup...
+2026-03-25 05:00:00:00 info: [CRON] Deleted file: Kitten.png
+2026-03-25 05:00:00:00 info: [CRON] Cleanup complete. Removed 1 expired file(s).
+2026-03-25 05:00:21:021 info: ✅ Connected to MongoDB
+2026-03-25 05:00:21:021 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:00:27:027 info: ✅ Connected to MongoDB
+2026-03-25 05:00:27:027 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:00:32:032 info: ✅ Connected to MongoDB
+2026-03-25 05:00:32:032 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:00:40:040 info: ✅ Connected to MongoDB
+2026-03-25 05:00:40:040 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:00:49:049 info: ✅ Connected to MongoDB
+2026-03-25 05:00:49:049 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:00:57:057 info: ✅ Connected to MongoDB
+2026-03-25 05:00:57:057 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:01:04:14 info: ✅ Connected to MongoDB
+2026-03-25 05:01:04:14 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:01:20:120 info: ✅ Connected to MongoDB
+2026-03-25 05:01:20:120 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:01:51:151 info: ✅ Connected to MongoDB
+2026-03-25 05:01:51:151 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:02:08:28 info: ✅ Connected to MongoDB
+2026-03-25 05:02:08:28 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:12:55:1255 info: ✅ Connected to MongoDB
+2026-03-25 05:12:55:1255 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:13:00:130 http: GET /api/dashboard/files
+2026-03-25 05:13:00:130 http: GET /api/dashboard/stats
+2026-03-25 05:13:00:130 http: GET /api/dashboard/files
+2026-03-25 05:13:00:130 http: GET /api/dashboard/stats
+2026-03-25 05:13:23:1323 http: POST /api/auth/login
+2026-03-25 05:13:29:1329 http: POST /api/auth/register
+2026-03-25 05:13:29:1329 debug: Master key generated successfully
+2026-03-25 05:13:29:1329 debug: Master key encrypted for storage
+2026-03-25 05:13:29:1329 info: [AUTH] New user registered: 69c321a1728e0d966ebe2c01 with encryption enabled
+2026-03-25 05:13:29:1329 http: GET /api/dashboard/files
+2026-03-25 05:13:29:1329 http: GET /api/dashboard/stats
+2026-03-25 05:13:29:1329 http: GET /api/dashboard/files
+2026-03-25 05:13:29:1329 http: GET /api/dashboard/stats
+2026-03-25 05:13:38:1338 http: POST /api/files/upload
+2026-03-25 05:13:38:1338 debug: Master key decrypted from storage
+2026-03-25 05:13:38:1338 error: Error generating file key: The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of ArrayBuffer
+2026-03-25 05:13:38:1338 warn: Could not retrieve master key for user 69c321a1728e0d966ebe2c01:
+2026-03-25 05:13:38:1338 debug: File compressed with GZIP: 3.05% reduction
+2026-03-25 05:13:38:1338 info: [COMPRESSION] Resume_AbhijitKapure.pdf: 82.99 KB → 80.46 KB (3.05% saved)
+2026-03-25 05:13:38:1338 info: [UPLOAD] File saved: Resume_AbhijitKapure.pdf | Compression: Yes | Encryption: No
+2026-03-25 05:13:38:1338 info: FILE_UPLOADED
+2026-03-25 05:13:46:1346 http: POST /api/payment/create-order
+2026-03-25 05:13:46:1346 error: Error creating Razorpay order: unknown error
+2026-03-25 05:13:49:1349 http: GET /api/dashboard/stats
+2026-03-25 05:13:49:1349 http: GET /api/dashboard/files
+2026-03-25 05:13:49:1349 http: GET /api/dashboard/files
+2026-03-25 05:13:49:1349 http: GET /api/dashboard/stats
+2026-03-25 05:13:50:1350 http: PATCH /api/dashboard/files/69c321aa728e0d966ebe2c13/visibility
+2026-03-25 05:13:51:1351 http: PATCH /api/dashboard/files/69c321aa728e0d966ebe2c13/visibility
+2026-03-25 05:13:52:1352 http: PATCH /api/dashboard/files/69c321aa728e0d966ebe2c13/extend
+2026-03-25 05:15:37:1537 info: ✅ Connected to MongoDB
+2026-03-25 05:15:37:1537 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:17:06:176 info: ✅ Connected to MongoDB
+2026-03-25 05:17:06:176 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:17:08:178 http: GET /api/auth/me
+2026-03-25 05:17:08:178 http: GET /api/auth/me
+2026-03-25 05:17:09:179 http: GET /api/dashboard/files
+2026-03-25 05:17:09:179 http: GET /api/dashboard/stats
+2026-03-25 05:17:09:179 http: GET /api/dashboard/files
+2026-03-25 05:17:09:179 http: GET /api/dashboard/stats
+2026-03-25 05:17:14:1714 http: POST /api/payment/create-order
+2026-03-25 05:17:14:1714 info: [PAYMENT] Order created for user 69c321a1728e0d966ebe2c01: order_SVFWUgdZwJEVfo
+2026-03-25 05:17:29:1729 http: GET /api/dashboard/files
+2026-03-25 05:17:29:1729 http: GET /api/dashboard/stats
+2026-03-25 05:17:30:1730 http: GET /api/dashboard/files
+2026-03-25 05:17:30:1730 http: GET /api/dashboard/stats
+2026-03-25 05:17:31:1731 http: PATCH /api/dashboard/files/69c321aa728e0d966ebe2c13/visibility
+2026-03-25 05:17:32:1732 http: PATCH /api/dashboard/files/69c321aa728e0d966ebe2c13/visibility
+2026-03-25 05:22:39:2239 info: ✅ Connected to MongoDB
+2026-03-25 05:22:41:2241 info: ✅ Connected to MongoDB
+2026-03-25 05:22:41:2241 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:27:21:2721 info: ✅ Connected to MongoDB
+2026-03-25 05:27:21:2721 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:36:10:3610 info: ✅ Connected to MongoDB
+2026-03-25 05:36:10:3610 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:38:01:381 http: GET /api/auth/me
+2026-03-25 05:38:01:381 http: GET /api/auth/me
+2026-03-25 05:38:01:381 http: GET /api/dashboard/files
+2026-03-25 05:38:01:381 http: GET /api/dashboard/stats
+2026-03-25 05:38:01:381 http: GET /api/dashboard/files
+2026-03-25 05:38:01:381 http: GET /api/dashboard/stats
+2026-03-25 05:38:38:3838 http: GET /api/auth/me
+2026-03-25 05:38:38:3838 http: GET /api/auth/me
+2026-03-25 05:38:40:3840 http: GET /api/dashboard/files
+2026-03-25 05:38:40:3840 http: GET /api/dashboard/stats
+2026-03-25 05:38:41:3841 http: GET /api/dashboard/files
+2026-03-25 05:38:41:3841 http: GET /api/dashboard/stats
+2026-03-25 05:38:43:3843 http: PATCH /api/dashboard/files/69c321aa728e0d966ebe2c13/visibility
+2026-03-25 05:38:45:3845 info: ✅ Connected to MongoDB
+2026-03-25 05:38:45:3845 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:38:46:3846 http: PATCH /api/dashboard/files/69c321aa728e0d966ebe2c13/visibility
+2026-03-25 05:38:58:3858 http: POST /api/payment/create-order
+2026-03-25 05:38:59:3859 info: [PAYMENT] Order created for user 69c321a1728e0d966ebe2c01: order_SVFtSd5HBExLL0
+2026-03-25 05:39:23:3923 http: GET /api/dashboard/files
+2026-03-25 05:39:23:3923 http: GET /api/dashboard/stats
+2026-03-25 05:39:23:3923 http: GET /api/dashboard/files
+2026-03-25 05:39:23:3923 http: GET /api/dashboard/stats
+2026-03-25 05:39:26:3926 http: GET /api/dashboard/files
+2026-03-25 05:39:26:3926 http: GET /api/dashboard/stats
+2026-03-25 05:39:26:3926 http: GET /api/dashboard/files
+2026-03-25 05:39:26:3926 http: GET /api/dashboard/stats
+2026-03-25 05:39:34:3934 http: PATCH /api/dashboard/files/69c321aa728e0d966ebe2c13/access
+2026-03-25 05:39:34:3934 info: [ACCESS CONTROL] File 69c321aa728e0d966ebe2c13 access mode changed to allowlist
+2026-03-25 05:39:34:3934 http: POST /api/dashboard/files/69c321aa728e0d966ebe2c13/allowlist
+2026-03-25 05:39:41:3941 http: GET /api/auth/me
+2026-03-25 05:39:41:3941 http: GET /api/auth/me
+2026-03-25 05:39:41:3941 http: GET /api/dashboard/files
+2026-03-25 05:39:41:3941 http: GET /api/dashboard/stats
+2026-03-25 05:39:41:3941 http: GET /api/dashboard/files
+2026-03-25 05:39:41:3941 http: GET /api/dashboard/stats
+2026-03-25 05:40:14:4014 http: POST /api/auth/register
+2026-03-25 05:40:14:4014 debug: Master key generated successfully
+2026-03-25 05:40:14:4014 debug: Master key encrypted for storage
+2026-03-25 05:40:17:4017 error: [AUTH] Failed to send verification email: Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to
+535 5.7.8  https://support.google.com/mail/?p=BadCredentials 98e67ed59e1d1-35c03211351sm3705862a91.15 - gsmtp
+2026-03-25 05:40:17:4017 info: [AUTH] New user registered: 69c327e6d530a8b779f16188 with encryption enabled
+2026-03-25 05:40:17:4017 http: GET /api/dashboard/files
+2026-03-25 05:40:17:4017 http: GET /api/dashboard/stats
+2026-03-25 05:40:17:4017 http: GET /api/dashboard/files
+2026-03-25 05:40:17:4017 http: GET /api/dashboard/stats
+2026-03-25 05:40:21:4021 http: PATCH /api/dashboard/files/69c321aa728e0d966ebe2c13/access
+2026-03-25 05:40:21:4021 info: [ACCESS CONTROL] File 69c321aa728e0d966ebe2c13 access mode changed to allowlist
+2026-03-25 05:40:21:4021 http: POST /api/dashboard/files/69c321aa728e0d966ebe2c13/allowlist
+2026-03-25 05:40:21:4021 info: [ALLOWLIST] User 69c327e6d530a8b779f16188 added to file 69c321aa728e0d966ebe2c13 with permissions: view
+2026-03-25 05:40:23:4023 http: GET /api/dashboard/files
+2026-03-25 05:40:23:4023 http: GET /api/dashboard/stats
+2026-03-25 05:40:26:4026 http: GET /api/auth/me
+2026-03-25 05:40:26:4026 http: GET /api/auth/me
+2026-03-25 05:40:26:4026 http: GET /api/dashboard/files
+2026-03-25 05:40:26:4026 http: GET /api/dashboard/stats
+2026-03-25 05:40:26:4026 http: GET /api/dashboard/files
+2026-03-25 05:40:26:4026 http: GET /api/dashboard/stats
+2026-03-25 05:40:32:4032 http: GET /api/dashboard/files
+2026-03-25 05:40:32:4032 http: GET /api/dashboard/stats
+2026-03-25 05:40:32:4032 http: GET /api/dashboard/files
+2026-03-25 05:40:32:4032 http: GET /api/dashboard/stats
+2026-03-25 05:40:36:4036 http: GET /api/dashboard/files
+2026-03-25 05:40:36:4036 http: GET /api/dashboard/stats
+2026-03-25 05:40:36:4036 http: GET /api/dashboard/files
+2026-03-25 05:40:36:4036 http: GET /api/dashboard/stats
+2026-03-25 05:42:55:4255 info: ✅ Connected to MongoDB
+2026-03-25 05:42:55:4255 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:43:01:431 info: ✅ Connected to MongoDB
+2026-03-25 05:43:01:431 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:43:14:4314 http: GET /api/dashboard/files
+2026-03-25 05:43:14:4314 http: GET /api/dashboard/stats
+2026-03-25 05:43:14:4314 http: GET /api/dashboard/files
+2026-03-25 05:43:14:4314 http: GET /api/dashboard/stats
+2026-03-25 05:43:16:4316 http: GET /api/dashboard/files
+2026-03-25 05:43:16:4316 http: GET /api/dashboard/stats
+2026-03-25 05:43:16:4316 http: GET /api/dashboard/files
+2026-03-25 05:43:16:4316 http: GET /api/dashboard/stats
+2026-03-25 05:43:20:4320 http: DELETE /api/dashboard/files/69c321aa728e0d966ebe2c13
+2026-03-25 05:43:20:4320 info: [DELETE] File deleted: Resume_AbhijitKapure.pdf by 69c321a1728e0d966ebe2c01
+2026-03-25 05:43:20:4320 http: GET /api/dashboard/stats
+2026-03-25 05:44:07:447 info: ✅ Connected to MongoDB
+2026-03-25 05:44:07:447 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:44:21:4421 http: POST /api/files/upload
+2026-03-25 05:44:21:4421 debug: Master key decrypted from storage
+2026-03-25 05:44:21:4421 error: Error generating file key: The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of ArrayBuffer
+2026-03-25 05:44:21:4421 warn: Could not retrieve master key for user 69c327e6d530a8b779f16188:
+2026-03-25 05:44:21:4421 debug: File compressed with GZIP: 3.05% reduction
+2026-03-25 05:44:21:4421 info: [COMPRESSION] Resume_AbhijitKapure.pdf: 82.99 KB → 80.46 KB (3.05% saved)
+2026-03-25 05:44:21:4421 info: [UPLOAD] File saved: Resume_AbhijitKapure.pdf | Compression: Yes | Encryption: No
+2026-03-25 05:44:21:4421 info: FILE_UPLOADED
+2026-03-25 05:44:23:4423 http: GET /api/dashboard/files
+2026-03-25 05:44:23:4423 http: GET /api/dashboard/stats
+2026-03-25 05:44:23:4423 http: GET /api/dashboard/files
+2026-03-25 05:44:24:4424 http: GET /api/dashboard/stats
+2026-03-25 05:44:28:4428 http: PATCH /api/dashboard/files/69c328dd8e732e80439b05af/access
+2026-03-25 05:44:28:4428 info: [ACCESS CONTROL] File 69c328dd8e732e80439b05af access mode changed to allowlist
+2026-03-25 05:44:28:4428 http: POST /api/dashboard/files/69c328dd8e732e80439b05af/allowlist
+2026-03-25 05:44:28:4428 info: [ALLOWLIST] User 69c327e6d530a8b779f16188 added to file 69c328dd8e732e80439b05af with permissions: view
+2026-03-25 05:44:30:4430 http: GET /api/dashboard/stats
+2026-03-25 05:44:30:4430 http: GET /api/dashboard/files
+2026-03-25 05:44:52:4452 http: PATCH /api/dashboard/files/69c328dd8e732e80439b05af/access
+2026-03-25 05:44:52:4452 info: [ACCESS CONTROL] File 69c328dd8e732e80439b05af access mode changed to allowlist
+2026-03-25 05:44:52:4452 http: POST /api/dashboard/files/69c328dd8e732e80439b05af/allowlist
+2026-03-25 05:44:52:4452 info: [ALLOWLIST] User 69c321a1728e0d966ebe2c01 added to file 69c328dd8e732e80439b05af with permissions: view
+2026-03-25 05:44:53:4453 http: GET /api/dashboard/files
+2026-03-25 05:44:53:4453 http: GET /api/dashboard/stats
+2026-03-25 05:44:59:4459 http: GET /api/files/691628
+2026-03-25 05:44:59:4459 info: FILE_LIST
+2026-03-25 05:44:59:4459 http: GET /api/files/691628
+2026-03-25 05:44:59:4459 info: FILE_LIST
+2026-03-25 05:48:18:4818 info: ✅ Connected to MongoDB
+2026-03-25 05:48:18:4818 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:49:04:494 info: ✅ Connected to MongoDB
+2026-03-25 05:49:04:494 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:49:14:4914 info: ✅ Connected to MongoDB
+2026-03-25 05:49:14:4914 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:49:28:4928 info: ✅ Connected to MongoDB
+2026-03-25 05:49:28:4928 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:50:55:5055 info: ✅ Connected to MongoDB
+2026-03-25 05:50:55:5055 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:50:55:5055 http: GET /api/auth/me
+2026-03-25 05:51:08:518 http: POST /api/auth/login
+2026-03-25 05:51:42:5142 http: POST /api/auth/register
+2026-03-25 05:51:42:5142 debug: Master key generated successfully
+2026-03-25 05:51:42:5142 debug: Master key encrypted for storage
+2026-03-25 05:51:45:5145 error: [AUTH] Failed to send verification email: Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to
+535 5.7.8  https://support.google.com/mail/?p=BadCredentials 41be03b00d2f7-c7668abb157sm448215a12.32 - gsmtp
+2026-03-25 05:51:45:5145 info: [AUTH] New user registered: 69c32a9673ce0438eeb45515 with encryption enabled
+2026-03-25 05:51:45:5145 http: GET /api/dashboard/stats
+2026-03-25 05:51:45:5145 http: GET /api/dashboard/files
+2026-03-25 05:51:45:5145 http: GET /api/dashboard/stats
+2026-03-25 05:51:45:5145 http: GET /api/dashboard/files
+2026-03-25 05:51:53:5153 http: GET /api/dashboard/files
+2026-03-25 05:51:53:5153 http: GET /api/dashboard/stats
+2026-03-25 05:51:53:5153 http: GET /api/dashboard/stats
+2026-03-25 05:51:53:5153 http: GET /api/dashboard/files
+2026-03-25 05:52:28:5228 http: POST /api/auth/register
+2026-03-25 05:52:29:5229 debug: Master key generated successfully
+2026-03-25 05:52:29:5229 debug: Master key encrypted for storage
+2026-03-25 05:52:31:5231 error: [AUTH] Failed to send verification email: Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to
+535 5.7.8  https://support.google.com/mail/?p=BadCredentials 98e67ed59e1d1-35c03211351sm3725894a91.15 - gsmtp
+2026-03-25 05:52:31:5231 info: [AUTH] New user registered: 69c32ac573ce0438eeb45525 with encryption enabled
+2026-03-25 05:52:31:5231 http: GET /api/dashboard/files
+2026-03-25 05:52:31:5231 http: GET /api/dashboard/stats
+2026-03-25 05:52:32:5232 http: GET /api/dashboard/files
+2026-03-25 05:52:32:5232 http: GET /api/dashboard/stats
+2026-03-25 05:52:40:5240 http: POST /api/files/upload
+2026-03-25 05:52:40:5240 debug: Master key decrypted from storage
+2026-03-25 05:52:40:5240 error: Error generating file key: The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of ArrayBuffer
+2026-03-25 05:52:40:5240 warn: Could not retrieve master key for user 69c32ac573ce0438eeb45525:
+2026-03-25 05:52:40:5240 debug: File compressed with GZIP: 3.05% reduction
+2026-03-25 05:52:40:5240 info: [COMPRESSION] Resume_AbhijitKapure.pdf: 82.99 KB → 80.46 KB (3.05% saved)
+2026-03-25 05:52:40:5240 info: [UPLOAD] File saved: Resume_AbhijitKapure.pdf | Compression: Yes | Encryption: No
+2026-03-25 05:52:40:5240 info: FILE_UPLOADED
+2026-03-25 05:52:41:5241 http: GET /api/dashboard/files
+2026-03-25 05:52:41:5241 http: GET /api/dashboard/stats
+2026-03-25 05:52:41:5241 http: GET /api/dashboard/files
+2026-03-25 05:52:41:5241 http: GET /api/dashboard/stats
+2026-03-25 05:52:44:5244 http: GET /api/dashboard/files/69c32ad073ce0438eeb45538/activity
+2026-03-25 05:52:54:5254 http: PATCH /api/dashboard/files/69c32ad073ce0438eeb45538/access
+2026-03-25 05:52:54:5254 info: [ACCESS CONTROL] File 69c32ad073ce0438eeb45538 access mode changed to allowlist
+2026-03-25 05:52:54:5254 http: POST /api/dashboard/files/69c32ad073ce0438eeb45538/allowlist
+2026-03-25 05:52:54:5254 info: [ALLOWLIST] User 69c32a9673ce0438eeb45515 added to file 69c32ad073ce0438eeb45538 with permissions: view
+2026-03-25 05:52:55:5255 http: GET /api/dashboard/files
+2026-03-25 05:52:55:5255 http: GET /api/dashboard/stats
+2026-03-25 05:52:57:5257 http: GET /api/dashboard/files/69c32ad073ce0438eeb45538/activity
+2026-03-25 05:53:13:5313 http: GET /api/files/015948
+2026-03-25 05:53:13:5313 info: FILE_LIST
+2026-03-25 05:53:13:5313 http: GET /api/files/015948
+2026-03-25 05:53:14:5314 info: FILE_LIST
+2026-03-25 05:53:17:5317 http: GET /api/files/preview/69c32ad073ce0438eeb45538
+2026-03-25 05:53:17:5317 warn: FILE_PREVIEW
+2026-03-25 05:53:26:5326 http: PATCH /api/dashboard/files/69c32ad073ce0438eeb45538/visibility
+2026-03-25 05:53:29:5329 http: GET /api/files/preview/69c32ad073ce0438eeb45538
+2026-03-25 05:53:29:5329 debug: File decompressed from GZIP
+2026-03-25 05:53:29:5329 info: [PREVIEW] File decompressed: Resume_AbhijitKapure.pdf
+2026-03-25 05:53:29:5329 info: FILE_PREVIEW
+2026-03-25 05:53:37:5337 http: GET /api/dashboard/files/69c32ad073ce0438eeb45538/activity
+2026-03-25 05:53:42:5342 http: GET /api/dashboard/files/69c32ad073ce0438eeb45538/activity
+2026-03-25 05:53:45:5345 http: GET /api/dashboard/files/69c32ad073ce0438eeb45538/activity
+2026-03-25 05:55:55:5555 info: ✅ Connected to MongoDB
+2026-03-25 05:55:55:5555 info: 🚀 Server running on http://localhost:5000
+2026-03-25 05:56:21:5621 http: PATCH /api/dashboard/files/69c32ad073ce0438eeb45538/visibility
+2026-03-25 05:56:23:5623 http: GET /api/dashboard/files/69c32ad073ce0438eeb45538/activity
+2026-03-25 05:56:28:5628 http: GET /api/files/015948
+2026-03-25 05:56:28:5628 info: FILE_LIST
+2026-03-25 05:56:29:5629 http: GET /api/files/preview/69c32ad073ce0438eeb45538
+2026-03-25 05:56:29:5629 debug: File decompressed from GZIP
+2026-03-25 05:56:29:5629 info: [PREVIEW] File decompressed: Resume_AbhijitKapure.pdf
+2026-03-25 05:56:29:5629 info: FILE_PREVIEW
+2026-03-25 05:56:34:5634 http: GET /api/files/015948
+2026-03-25 05:56:34:5634 info: FILE_LIST
+2026-03-25 05:56:36:5636 http: GET /api/dashboard/files/69c32ad073ce0438eeb45538/activity
+2026-03-25 05:56:46:5646 http: POST /api/payment/create-order
+2026-03-25 05:56:46:5646 info: [PAYMENT] Order created for user 69c32ac573ce0438eeb45525: order_SVGCG4Q5GklFOJ
+2026-03-25 05:56:52:5652 http: GET /api/dashboard/files
+2026-03-25 05:56:52:5652 http: GET /api/dashboard/stats
+2026-03-25 05:56:52:5652 http: GET /api/dashboard/files
+2026-03-25 05:56:52:5652 http: GET /api/dashboard/stats
+2026-03-25 05:56:55:5655 http: GET /api/dashboard/files
+2026-03-25 05:56:55:5655 http: GET /api/dashboard/stats
+2026-03-25 05:56:55:5655 http: GET /api/dashboard/files
+2026-03-25 05:56:55:5655 http: GET /api/dashboard/stats
+2026-03-25 05:56:59:5659 http: PATCH /api/dashboard/files/69c32ad073ce0438eeb45538/extend
+2026-03-25 05:58:44:5844 http: POST /api/auth/forgot-password
+2026-03-25 05:58:46:5846 error: Forgot password error: Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to
+535 5.7.8  https://support.google.com/mail/?p=BadCredentials d9443c01a7336-2b08368ea1bsm195303115ad.68 - gsmtp
+2026-03-25 05:59:30:5930 http: POST /api/auth/forgot-password
+2026-03-25 06:00:00:00 info: [CRON] Running expired file cleanup...
+2026-03-25 06:00:00:00 info: [CRON] Cleanup complete. Removed 0 expired file(s).
+2026-03-25 06:00:28:028 info: ✅ Connected to MongoDB
+2026-03-25 06:00:28:028 info: 🚀 Server running on http://localhost:5000
+2026-03-25 06:00:33:033 info: ✅ Connected to MongoDB
+2026-03-25 06:00:33:033 info: 🚀 Server running on http://localhost:5000
+2026-03-25 06:02:07:27 info: ✅ Connected to MongoDB
+2026-03-25 06:02:07:27 info: 🚀 Server running on http://localhost:5000
+2026-03-25 06:02:11:211 http: POST /api/auth/forgot-password
+2026-03-25 06:02:14:214 error: Forgot password error: Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to
+535 5.7.8  https://support.google.com/mail/?p=BadCredentials d2e1a72fcca58-82b040da438sm13895498b3a.43 - gsmtp
+2026-03-25 06:02:52:252 http: POST /api/auth/forgot-password
+2026-03-25 06:03:57:357 http: POST /api/auth/forgot-password
+2026-03-25 06:03:59:359 error: Forgot password error: Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to
+535 5.7.8  https://support.google.com/mail/?p=BadCredentials 98e67ed59e1d1-35c0ac5b287sm1632838a91.4 - gsmtp
+2026-03-25 06:04:41:441 http: POST /api/auth/login
+2026-03-25 06:04:42:442 debug: Master key decrypted from storage
+2026-03-25 06:04:42:442 debug: [AUTH] Master key verified for user 69c32a9673ce0438eeb45515
+2026-03-25 06:04:42:442 http: GET /api/dashboard/files
+2026-03-25 06:04:42:442 http: GET /api/dashboard/stats
+2026-03-25 06:04:42:442 http: GET /api/dashboard/files
+2026-03-25 06:04:42:442 http: GET /api/dashboard/stats
+2026-03-25 06:04:55:455 http: GET /api/dashboard/files
+2026-03-25 06:04:55:455 http: GET /api/dashboard/stats
+2026-03-25 06:04:55:455 http: GET /api/dashboard/files
+2026-03-25 06:04:55:455 http: GET /api/dashboard/stats

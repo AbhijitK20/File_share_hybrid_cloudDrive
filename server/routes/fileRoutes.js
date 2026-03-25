@@ -4,6 +4,9 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { uploadFiles } = require('../controllers/uploadController');
 const { getFilesByCode, downloadFile, previewFile } = require('../controllers/accessController');
+const { optionalAuth } = require('../middleware/authMiddleware');
+const { fileValidationMiddleware } = require('../middleware/fileValidation');
+const { uploadLimiter, accessLimiter, downloadLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
@@ -25,12 +28,31 @@ const upload = multer({
   },
 });
 
-const { optionalAuth } = require('../middleware/authMiddleware');
-
 // Routes
-router.post('/upload', optionalAuth, upload.array('files', 20), uploadFiles);
-router.get('/:code', optionalAuth, getFilesByCode);
-router.get('/download/:id', optionalAuth, downloadFile);
-router.get('/preview/:id', optionalAuth, previewFile);
+router.post('/upload', 
+  uploadLimiter,
+  optionalAuth, 
+  upload.array('files', 20),
+  fileValidationMiddleware,
+  uploadFiles
+);
+
+router.get('/:code', 
+  accessLimiter,
+  optionalAuth, 
+  getFilesByCode
+);
+
+router.get('/download/:id', 
+  downloadLimiter,
+  optionalAuth, 
+  downloadFile
+);
+
+router.get('/preview/:id', 
+  accessLimiter,
+  optionalAuth, 
+  previewFile
+);
 
 module.exports = router;

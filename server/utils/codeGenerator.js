@@ -2,16 +2,17 @@ const crypto = require('crypto');
 const File = require('../models/File');
 
 /**
- * Generate a unique 6-digit numeric access code.
+ * Generate 6-digit numeric access code.
  * Keeps regenerating until a unique one is found.
+ * @returns {Promise<string>} - Unique 6-digit code
  */
 async function generateUniqueCode() {
   let code;
   let exists = true;
 
   while (exists) {
-    // Generate a random 6-digit number (100000-999999)
-    code = crypto.randomInt(100000, 999999).toString();
+    // Generate random 6-digit numeric code
+    code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
     
     // Check if this code already exists in DB
     const existing = await File.findOne({ groupCode: code });
@@ -23,4 +24,6 @@ async function generateUniqueCode() {
   return code;
 }
 
-module.exports = { generateUniqueCode };
+module.exports = { 
+  generateUniqueCode
+};

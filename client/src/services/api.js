@@ -62,4 +62,29 @@ export const fetchFileAsBlob = async (fileId, type = 'download') => {
   return URL.createObjectURL(response.data);
 };
 
+export const checkEmailExists = async (email) => {
+  const res = await api.post('/auth/email-exists', { email });
+  return res.data;
+};
+
+export const requestPasswordReset = async (email) => {
+  const res = await api.post('/auth/forgot-password', { email });
+  return res.data;
+};
+
+export const resetPasswordWithCode = async ({ email, code, newPassword }) => {
+  const res = await api.post('/auth/reset-password', { email, code, newPassword });
+  return res.data;
+};
+
+export const verifyEmailCode = async ({ email, code }) => {
+  const res = await api.post('/auth/verify-email', { email, code });
+  return res.data;
+};
+
+export const resendVerificationCode = async (email) => {
+  const res = await api.post('/auth/resend-verification', { email });
+  return res.data;
+};
+
 export default api;
