@@ -29,8 +29,34 @@ app.use(helmet({
   },
 }));
 
+const configuredClientOrigins = String(process.env.CLIENT_URL || '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
+
+const allowedOrigins = new Set([
+  'http://localhost:5173',
+  ...configuredClientOrigins,
+]);
+
+if (process.env.VERCEL_URL) {
+  allowedOrigins.add(`https://${process.env.VERCEL_URL}`);
+}
+
 const corsOptions = {
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.has(origin)) return callback(null, true);
+
+    try {
+      const hostname = new URL(origin).hostname;
+      if (hostname.endsWith('.vercel.app')) return callback(null, true);
+    } catch (error) {
+      // Ignore malformed origin and fall through to deny.
+    }
+
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
