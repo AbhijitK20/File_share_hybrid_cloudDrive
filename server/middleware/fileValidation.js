@@ -1,7 +1,15 @@
 const path = require('path');
-const FileType = require('file-type');
 const fs = require('fs');
 const { scanFile } = require('../utils/malwareScan');
+
+let fileTypeModulePromise = null;
+
+async function getFileTypeModule() {
+  if (!fileTypeModulePromise) {
+    fileTypeModulePromise = import('file-type');
+  }
+  return fileTypeModulePromise;
+}
 
 // Whitelist of allowed MIME types (configurable)
 const ALLOWED_MIMETYPES = [
@@ -97,8 +105,12 @@ async function validateFile(file) {
 
   // 4. Magic byte validation (check actual file signature)
   try {
-    if (file.path) {
-      const fileType = await FileType.fromFile(file.path);
+    if (file.path || file.buffer) {
+      const fileTypeModule = await getFileTypeModule();
+      const fileType = file.buffer
+        ? await fileTypeModule.fileTypeFromBuffer(file.buffer)
+        : await fileTypeModule.fileTypeFromFile(file.path);
+
       if (fileType && !ALLOWED_MIMETYPES.includes(fileType.mime)) {
         return { 
           isValid: false, 
