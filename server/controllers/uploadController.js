@@ -1,32 +1,17 @@
-const fs = require('fs');
-const File = require('../models/File');
-const User = require('../models/User');
+const supabase = require('../utils/supabase');
 const { generateUniqueCode } = require('../utils/codeGenerator');
 const { logFileUpload, logger } = require('../utils/logger');
 const QRCode = require('qrcode');
+const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const encryptionUtils = require('../utils/encryption');
 const compressionUtils = require('../utils/compression');
 
+const ALLOWED_VISIBILITY = ['public', 'private'];
+const ALLOWED_ACCESS_MODES = ['public', 'allowlist', 'blocklist'];
+
 /**
- * Upload multiple files with encryption and compression.
- * POST /api/files/upload
- * 
- * Features:
- * - File compression (GZIP)
- * - File encryption (AES-256-GCM)
- * - Rate limiting (uploadLimiter middleware)
- * - File validation (fileValidationMiddleware)
- * - Audit logging
- * 
- * Request body:
- * {
- *   files: MultipartFile[],
- *   visibility: 'public' | 'private' | 'shared' (default: 'private'),
- *   enableEncryption: boolean (default: true),
- *   enableCompression: boolean (default: true),
- *   accessControl: { mode: 'public' | 'allowlist' | 'blocklist' }
- * }
+ * Upload multiple files to Supabase Storage.
  */
 exports.uploadFiles = async (req, res) => {
   try {
@@ -34,241 +19,154 @@ exports.uploadFiles = async (req, res) => {
       return res.status(400).json({ message: 'No files uploaded' });
     }
 
-    // Get user and plan limits
-    const user = req.user ? await User.findById(req.user._id) : null;
+    let user = null;
+    if (req.user) {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', req.user.id)
+        .single();
+      if (!error) user = data;
+    }
+
     const isPremium = user?.plan === 'premium';
-    const MAX_FILE_SIZE = isPremium ? 5 * 1024 * 1024 * 1024 : 100 * 1024 * 1024; // 5GB vs 100MB
-    const MAX_TOTAL_SIZE = isPremium ? 50 * 1024 * 1024 * 1024 : 500 * 1024 * 1024;
-
-    // Get encryption settings from request or user preference
-    const enableEncryption = req.body.enableEncryption !== 'false' && user?.encryptionEnabled !== false;
-    const enableCompression = req.body.enableCompression !== 'false';
-
-    // Check individual file sizes
-    let totalSize = 0;
+    const MAX_FILE_SIZE = isPremium ? 5 * 1024 * 1024 * 1024 : 100 * 1024 * 1024;
+    
+    // Check sizes
     for (const file of req.files) {
-      totalSize += file.size;
-
       if (file.size > MAX_FILE_SIZE) {
-        // Cleanup uploaded files
-        for (const f of req.files) {
-          const filePath = path.join(__dirname, '..', 'uploads', f.filename);
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
-        }
-
-        logFileUpload(
-          req.user?._id,
-          req.files,
-          req.ip,
-          req.get('user-agent')
-        );
-
         return res.status(413).json({
-          message: `File ${file.originalname} exceeds the limit of ${isPremium ? '5GB' : '100MB'}. ${!isPremium ? 'Upgrade to Premium for 5GB limits.' : ''}`,
+          message: `File ${file.originalname} exceeds the limit of ${isPremium ? '5GB' : '100MB'}.`,
         });
       }
     }
 
-    // Check total size
-    if (totalSize > MAX_TOTAL_SIZE) {
-      // Cleanup
-      for (const f of req.files) {
-        const filePath = path.join(__dirname, '..', 'uploads', f.filename);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-      }
+    const groupCode = await generateUniqueCode();
+    // All uploads expire in 24 hours by default. Premium users can extend later.
+    const expiryHours = 24;
+    const expiresAt = new Date(Date.now() + expiryHours * 60 * 60 * 1000).toISOString();
 
-      return res.status(413).json({
-        message: `Total upload size exceeds the limit of ${isPremium ? '50GB' : '500MB'}.`,
-      });
+    let visibility = ALLOWED_VISIBILITY.includes(req.body.visibility) ? req.body.visibility : 'public';
+    let accessMode = ALLOWED_ACCESS_MODES.includes(req.body.accessMode) ? req.body.accessMode : 'public';
+
+    // Anonymous uploads must remain publicly accessible by code.
+    if (!user) {
+      visibility = 'public';
+      accessMode = 'public';
     }
 
-    // Generate unique access code
-    const groupCode = await generateUniqueCode();
+    const enableEncryption = req.body.enableEncryption !== 'false' && user?.encryption_enabled !== false;
+    const enableCompression = req.body.enableCompression !== 'false';
 
-    // Default expiry: 24 hours from now (or 90 days for premium)
-    const expiryHours = isPremium ? 24 * 90 : 24;
-    const expiresAt = new Date(Date.now() + expiryHours * 60 * 60 * 1000);
-
-    // Get user master key for encryption if needed
     let masterKey = null;
     let fileKeyData = null;
-    if (enableEncryption && user) {
+    if (enableEncryption && user?.master_key) {
       try {
-        // Decrypt user's master key
-        const encryptedMasterKey = await User.findById(user._id).select('+masterKey +masterKeySalt');
-        if (encryptedMasterKey && encryptedMasterKey.masterKey) {
-          masterKey = encryptionUtils.decryptMasterKeyFromStorage(encryptedMasterKey.masterKey);
-          fileKeyData = encryptionUtils.generateFileKey(masterKey);
-          logger.debug(`Master key retrieved for user ${user._id}`);
-        }
-      } catch (error) {
-        logger.warn(`Could not retrieve master key for user ${user._id}:`, error.message);
-        // Continue without encryption if master key unavailable
+        masterKey = encryptionUtils.decryptMasterKeyFromStorage(user.master_key);
+        fileKeyData = encryptionUtils.generateFileKey(masterKey);
+      } catch (err) {
+        logger.warn(`Master key error: ${err.message}`);
       }
     }
 
-    // Save each file's metadata to DB
     const savedFiles = [];
-    const compressionStats = [];
     let totalCompressedSize = 0;
 
     for (const file of req.files) {
       try {
-        // Read file from disk
-        const filePath = path.join(__dirname, '..', 'uploads', file.filename);
-        let fileData = fs.readFileSync(filePath);
-        let compressedSize = fileData.length;
+        let fileData = file.buffer; // Multer memoryStorage provides file.buffer
+        let compressedSize = file.size;
         let isCompressed = false;
-        let encryptionMetadata = null;
+        let encryptionMetadata = { enabled: false };
 
-        // Step 1: Compress file if enabled
         if (enableCompression) {
           try {
-            const compressedData = await compressionUtils.compressGZIP(fileData);
-            const ratio = compressionUtils.calculateCompressionRatio(fileData.length, compressedData.length);
-            
-            logger.info(
-              `[COMPRESSION] ${file.originalname}: ${compressionUtils.formatBytes(fileData.length)} → ${compressionUtils.formatBytes(compressedData.length)} (${ratio.ratio}% saved)`
-            );
-            
-            fileData = compressedData;
-            compressedSize = compressedData.length;
+            const compressed = await compressionUtils.compressGZIP(fileData);
+            fileData = compressed;
+            compressedSize = compressed.length;
             isCompressed = true;
-            compressionStats.push({
-              name: file.originalname,
-              originalSize: file.size,
-              compressedSize: compressedSize,
-              ratio: ratio.ratio,
-            });
-            totalCompressedSize += compressedSize;
-          } catch (compressError) {
-            logger.warn(`Compression failed for ${file.originalname}, storing uncompressed:`, compressError.message);
+          } catch (e) {
+            logger.warn(`Compression failed for ${file.originalname}`);
           }
-        } else {
-          totalCompressedSize += fileData.length;
         }
+        totalCompressedSize += compressedSize;
 
-        // Step 2: Encrypt file if enabled
         if (enableEncryption && fileKeyData) {
-          try {
-            const encrypted = encryptionUtils.encryptFile(fileData, fileKeyData.fileKey);
-            fileData = encrypted.encryptedData;
-
-            encryptionMetadata = {
-              enabled: true,
-              algorithm: 'aes-256-gcm',
-              iv: encrypted.iv,
-              authTag: encrypted.authTag,
-              fileKeyHash: fileKeyData.fileKeyHash,
-              fileKeyNonce: fileKeyData.nonce,
-            };
-
-            logger.info(
-              `[ENCRYPTION] ${file.originalname}: Encrypted with AES-256-GCM (${compressionUtils.formatBytes(fileData.length)})`
-            );
-          } catch (encryptError) {
-            logger.error(`Encryption failed for ${file.originalname}:`, encryptError.message);
-            throw encryptError;
-          }
+          const encrypted = encryptionUtils.encryptFile(fileData, fileKeyData.fileKey);
+          fileData = encrypted.encryptedData;
+          encryptionMetadata = {
+            enabled: true,
+            algorithm: 'aes-256-gcm',
+            iv: encrypted.iv,
+            authTag: encrypted.authTag,
+            fileKeyHash: fileKeyData.fileKeyHash,
+            fileKeyNonce: fileKeyData.nonce,
+          };
         }
 
-        // Step 3: Save encrypted/compressed data back to disk (overwrite)
-        fs.writeFileSync(filePath, fileData);
+        const supabaseFilename = `${uuidv4()}-${file.originalname}`;
+        
+        // Upload to Supabase Storage (Bucket: 'uploads')
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('uploads')
+          .upload(supabaseFilename, fileData, {
+            contentType: file.mimetype,
+            upsert: false
+          });
 
-        // Step 4: Save metadata to DB
-        const newFile = new File({
-          filename: file.filename,
-          originalName: file.originalname,
-          size: file.size,
-          compressedSize: isCompressed ? compressedSize : null,
-          isCompressed: isCompressed,
-          mimetype: file.mimetype,
-          groupCode,
-          expiresAt,
-          uploadedBy: user ? user._id : null,
-          visibility: req.body.visibility || 'private',
-          encryption: encryptionMetadata || { enabled: false },
-          accessControl: {
-            mode: req.body.accessControl?.mode || 'public',
-            blockedUsers: req.body.accessControl?.blockedUsers || [],
-            allowedUsers: req.body.accessControl?.allowedUsers || [],
-          },
-        });
+        if (uploadError) throw uploadError;
 
-        const saved = await newFile.save();
-        savedFiles.push(saved);
+        const { data: newFile, error: dbError } = await supabase
+          .from('files')
+          .insert([{
+            filename: supabaseFilename,
+            original_name: file.originalname,
+            size: file.size,
+            compressed_size: isCompressed ? compressedSize : null,
+            is_compressed: isCompressed,
+            mimetype: file.mimetype,
+            group_code: groupCode,
+            expires_at: expiresAt,
+            uploaded_by_id: user ? user.id : null,
+            visibility,
+            access_mode: accessMode,
+            encryption: encryptionMetadata
+          }])
+          .select()
+          .single();
 
-        logger.info(
-          `[UPLOAD] File saved: ${file.originalname} | Compression: ${isCompressed ? 'Yes' : 'No'} | Encryption: ${encryptionMetadata ? 'Yes' : 'No'}`
-        );
+        if (dbError) throw dbError;
+        savedFiles.push(newFile);
       } catch (error) {
-        logger.error(`Error processing file ${file.originalname}:`, error);
-        // Continue with other files, but log the error
+        logger.error(`Error processing ${file.originalname}:`, error);
       }
     }
 
-    // Update user storage if logged in
     if (user) {
-      user.storageUsed = (user.storageUsed || 0) + totalCompressedSize;
-      await user.save();
+      await supabase
+        .from('users')
+        .update({ storage_used: (user.storage_used || 0) + totalCompressedSize })
+        .eq('id', user.id);
     }
 
-    // Audit log - file upload event
-    logFileUpload(req.user?._id, req.files, req.ip, req.get('user-agent'));
-
-    // Generate QR code
-    const accessUrl = `${process.env.CLIENT_URL}/access/${groupCode}`;
-    const qrCodeDataUrl = await QRCode.toDataURL(accessUrl, {
-      width: 300,
-      margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#ffffff',
-      },
-    });
-
-    // Calculate aggregate compression stats
-    const totalOriginalSize = compressionStats.reduce((sum, s) => sum + s.originalSize, 0);
-    const averageCompressionRatio = compressionStats.length > 0
-      ? (compressionStats.reduce((sum, s) => sum + s.ratio, 0) / compressionStats.length).toFixed(2)
-      : 0;
+    const accessUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/access/${groupCode}`;
+    const qrCodeDataUrl = await QRCode.toDataURL(accessUrl);
 
     res.status(201).json({
-      message: 'Files uploaded successfully',
+      message: 'Files uploaded successfully to cloud storage',
       groupCode,
       accessUrl,
       qrCode: qrCodeDataUrl,
       files: savedFiles.map(f => ({
-        id: f._id,
-        name: f.originalName,
+        id: f.id,
+        name: f.original_name,
         size: f.size,
-        compressedSize: f.compressedSize,
-        mimetype: f.mimetype,
         encrypted: f.encryption?.enabled || false,
-        compressed: f.isCompressed,
       })),
       expiresAt,
-      compression: {
-        enabled: enableCompression,
-        stats: compressionStats,
-        totalOriginalSize,
-        totalCompressedSize,
-        averageRatio: `${averageCompressionRatio}%`,
-      },
-      encryption: {
-        enabled: enableEncryption && fileKeyData !== null,
-        algorithm: enableEncryption && fileKeyData ? 'aes-256-gcm' : null,
-      },
     });
   } catch (error) {
     logger.error('Upload error:', error);
-    res.status(500).json({
-      message: 'Server error during upload',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-    });
+    res.status(500).json({ message: 'Server error during upload' });
   }
 };

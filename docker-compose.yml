@@ -1,0 +1,28 @@
+services:
+  backend:
+    build: ./server
+    container_name: fileshare_backend
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./.env
+    environment:
+      - PORT=5000
+      - CLIENT_URL=http://localhost:5173
+    volumes:
+      - ./server/logs:/app/logs
+
+  frontend:
+    env_file:
+      - ./.env
+    build: 
+      context: ./client
+      args:
+        - VITE_API_URL=${VITE_API_URL}
+    container_name: fileshare_frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=${VITE_API_URL}
+    depends_on:
+      - backend

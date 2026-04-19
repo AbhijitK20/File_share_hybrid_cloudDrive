@@ -3,11 +3,38 @@ const { logger } = require('./logger');
 
 let transporter = null;
 
+function isPlaceholderSecret(value = '') {
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) return true;
+
+  return [
+    'replace_with',
+    'your_app_password',
+    'your-app-password',
+    'changeme',
+    'example',
+    'abcdefgh',
+  ].some((token) => normalized.includes(token));
+}
+
+function createFallbackTransporter(reason) {
+  logger.warn(`[MAIL] SMTP unavailable (${reason}). Falling back to local JSON mail transport.`);
+  const tx = nodemailer.createTransport({ jsonTransport: true });
+  tx.__isFallback = true;
+  return tx;
+}
+
 function getTransporter() {
   if (transporter) return transporter;
 
   if (!process.env.SMTP_HOST || !process.env.SMTP_PORT || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    throw new Error('SMTP is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS');
+    transporter = createFallbackTransporter('missing SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS');
+    return transporter;
+  }
+
+  if (isPlaceholderSecret(process.env.SMTP_PASS) || isPlaceholderSecret(process.env.SMTP_USER)) {
+    transporter = createFallbackTransporter('placeholder SMTP credentials detected');
+    return transporter;
   }
 
   transporter = nodemailer.createTransport({
@@ -26,9 +53,25 @@ function getTransporter() {
 async function sendEmail({ to, subject, text, html }) {
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
   const tx = getTransporter();
-  const info = await tx.sendMail({ from, to, subject, text, html });
-  logger.info(`[MAIL] Sent email to ${to} with messageId ${info.messageId}`);
-  return info;
+
+  try {
+    const info = await tx.sendMail({ from, to, subject, text, html });
+
+    if (tx.__isFallback) {
+      logger.info(`[MAIL] Email captured locally for ${to}. SMTP disabled or unavailable.`);
+    } else {
+      logger.info(`[MAIL] Sent email to ${to} with messageId ${info.messageId}`);
+    }
+
+    return info;
+  } catch (error) {
+    // Do not break auth flows when SMTP credentials are invalid at runtime.
+    logger.warn(`[MAIL] SMTP send failed (${error.message}). Switching to fallback local transport.`);
+    transporter = createFallbackTransporter('runtime SMTP authentication failure');
+    const fallbackInfo = await transporter.sendMail({ from, to, subject, text, html });
+    logger.info(`[MAIL] Email captured locally for ${to}.`);
+    return fallbackInfo;
+  }
 }
 
 function otpTemplate(title, code, minutes) {

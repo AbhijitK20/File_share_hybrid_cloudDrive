@@ -1,0 +1,26 @@
+{
+  "name": "project-by-anti",
+  "version": "1.0.0",
+  "description": "",
+  "main": "generate_synopsis.js",
+  "scripts": {
+    "start": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "npm start --prefix server",
+    "client": "npm run dev --prefix client",
+    "build": "npm run build --prefix client"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AbhijitK20/File_share_hybrid_cloudDrive.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/AbhijitK20/File_share_hybrid_cloudDrive/issues"
+  },
+  "homepage": "https://github.com/AbhijitK20/File_share_hybrid_cloudDrive#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

@@ -34,3 +34,37 @@ server/FULL_TEST.js
 .env
 server/.env
 client/.env
+
+# Local git backup artifacts (never commit)
+server/.git_backup/
+
+# Agent/test temporary files
+_verify_expiry_*.ps1
+tmp_expiry_*.txt
+
+# Generated synopsis/report artifacts
+PROJECT_SYNOPSIS.docx
+PROJECT_SYNOPSIS_GENERATION_*
+README_SYNOPSIS_*
+SYNOPSIS_GENERATION_COMPLETE_SOLUTION.txt
+START_HERE.txt
+Create-Synopsis.ps1
+GENERATE_SYNOPSIS.bat
+MASTER_CREATE_SYNOPSIS.bat
+check_and_run.bat
+create_docx.bat
+create_minimal_docx.py
+create_synopsis.vbs
+create_synopsis_batch.bat
+create_synopsis_com.bat
+create_synopsis_docx.js
+direct_create_synopsis.py
+execute_synopsis.bat
+fill_synopsis.py
+generate_synopsis_native.py
+run_create_synopsis.bat
+run_python_script.bat
+run_script.bat
+run_synopsis.js
+test_docx.py
+wrapper.py

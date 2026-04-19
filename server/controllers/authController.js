@@ -1,6 +1,7 @@
-const User = require('../models/User');
+const supabase = require('../utils/supabase');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const encryptionUtils = require('../utils/encryption');
 const { logger } = require('../utils/logger');
 const { sendEmail, otpTemplate } = require('../utils/mailer');
@@ -9,24 +10,14 @@ const OTP_TTL_MINUTES = 10;
 const RESEND_COOLDOWN_SECONDS = 60;
 const MAX_OTP_ATTEMPTS = 5;
 
-/**
- * Generate JWT token for a user.
- */
 const generateToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-    expiresIn: '7d',
-  });
+  return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
 const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
-
 const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
-
 const hashOtp = (code) =>
-  crypto
-    .createHash('sha256')
-    .update(`${code}:${process.env.JWT_SECRET}`)
-    .digest('hex');
+  crypto.createHash('sha256').update(`${code}:${process.env.JWT_SECRET}`).digest('hex');
 
 const isWithinCooldown = (lastSentAt) => {
   if (!lastSentAt) return false;
@@ -40,150 +31,117 @@ const cooldownRemainingSeconds = (lastSentAt) => {
   return remainingMs > 0 ? Math.ceil(remainingMs / 1000) : 0;
 };
 
-/**
- * Register a new user with encryption support.
- * POST /api/auth/register
- * 
- * New: Generates and stores encrypted master key for file encryption
- */
+const buildOtpPayload = (code) => ({
+  codeHash: hashOtp(code),
+  expiresAt: new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000).toISOString(),
+  attempts: 0,
+  lastSentAt: new Date().toISOString(),
+});
+
+const toPublicUser = (user) => ({
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  plan: user.plan,
+  storageUsed: user.storage_used,
+  createdAt: user.created_at,
+  encryptionEnabled: user.encryption_enabled,
+  isEmailVerified: user.is_email_verified,
+  subscriptionStatus: user.subscription_status,
+  subscriptionEndDate: user.subscription_end_date,
+});
+
 exports.register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
     const normalizedEmail = normalizeEmail(email);
 
-    // Validate input
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ message: 'Password must be at least 6 characters' });
-    }
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(409).json({ message: 'An account with this email already exists' });
     }
 
-    // Generate encryption master key from password
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
     const { key: masterKey, salt: masterKeySalt } = encryptionUtils.generateMasterKey(password);
     const encryptedMasterKey = encryptionUtils.encryptMasterKeyForStorage(masterKey);
 
-    // Create user with encryption fields
-    const user = await User.create({
-      name,
-      email: normalizedEmail,
-      password,
-      masterKey: encryptedMasterKey,
-      masterKeySalt: masterKeySalt,
-      encryptionEnabled: true, // Enable encryption by default
-      isEmailVerified: false,
-    });
-
     const code = generateOtp();
-    user.emailVerification = {
-      codeHash: hashOtp(code),
-      expiresAt: new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000),
-      attempts: 0,
-      lastSentAt: new Date(),
-    };
-    await user.save();
+    const { data: user, error } = await supabase
+      .from('users')
+      .insert([{
+        name,
+        email: normalizedEmail,
+        password: hashedPassword,
+        master_key: encryptedMasterKey,
+        master_key_salt: masterKeySalt,
+        encryption_enabled: true,
+        is_email_verified: false,
+        email_verification: buildOtpPayload(code),
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
 
     try {
       const tpl = otpTemplate('Verify your FileShare email', code, OTP_TTL_MINUTES);
-      await sendEmail({
-        to: user.email,
-        subject: 'FileShare email verification code',
-        text: tpl.text,
-        html: tpl.html,
-      });
+      await sendEmail({ to: user.email, subject: 'FileShare email verification code', ...tpl });
     } catch (mailErr) {
-      logger.error(`[AUTH] Failed to send verification email: ${mailErr.message}`);
+      logger.error(`[AUTH] email failed: ${mailErr.message}`);
     }
 
-    // Generate token
-    const token = generateToken(user._id);
-
-    logger.info(`[AUTH] New user registered: ${user._id} with encryption enabled`);
-
+    const token = generateToken(user.id);
     res.status(201).json({
-      message: 'Account created successfully with encryption enabled',
+      message: 'Account created!',
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        plan: user.plan,
-        encryptionEnabled: user.encryptionEnabled,
-        isEmailVerified: user.isEmailVerified,
-      },
+      user: toPublicUser(user)
     });
   } catch (error) {
     logger.error('Register error:', error);
-    if (error.code === 11000) {
-      return res.status(409).json({ message: 'An account with this email already exists' });
-    }
     res.status(500).json({ message: 'Server error during registration' });
   }
 };
 
-/**
- * Login user with encryption key retrieval.
- * POST /api/auth/login
- */
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
     const normalizedEmail = normalizeEmail(email);
 
     if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+      return res.status(400).json({ message: 'Email and password required' });
     }
 
-    // Find user with password and encryption fields
-    const user = await User.findOne({ email: normalizedEmail }).select('+password +masterKey +masterKeySalt');
-    if (!user) {
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
+
+    if (error || !user) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    // Compare passwords
-    const isMatch = await user.comparePassword(password);
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    // Verify and retrieve master key if encryption is enabled
-    let encryptionStatus = 'disabled';
-    if (user.encryptionEnabled && user.masterKey) {
-      try {
-        // Test that we can decrypt the master key
-        encryptionUtils.decryptMasterKeyFromStorage(user.masterKey);
-        encryptionStatus = 'enabled';
-        logger.debug(`[AUTH] Master key verified for user ${user._id}`);
-      } catch (decryptError) {
-        logger.warn(`[AUTH] Could not verify master key for user ${user._id}:`, decryptError.message);
-        encryptionStatus = 'error';
-      }
-    }
-
-    // Generate token
-    const token = generateToken(user._id);
-
+    const token = generateToken(user.id);
     res.json({
       message: 'Login successful',
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        plan: user.plan,
-        encryptionEnabled: user.encryptionEnabled,
-        encryptionStatus: encryptionStatus,
-        subscriptionStatus: user.subscriptionStatus,
-        subscriptionEndDate: user.subscriptionEndDate,
-        isEmailVerified: user.isEmailVerified,
-      },
+      user: toPublicUser(user),
     });
   } catch (error) {
     logger.error('Login error:', error);
@@ -191,100 +149,26 @@ exports.login = async (req, res) => {
   }
 };
 
-/**
- * Get current user profile with encryption/subscription status.
- * GET /api/auth/me
- */
 exports.getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select('-password +masterKey +masterKeySalt');
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', req.user.id)
+      .single();
 
-    // Check if subscription has expired
-    if (user.plan === 'premium' && user.subscriptionEndDate && user.subscriptionEndDate < new Date()) {
-      user.plan = 'free';
-      user.subscriptionStatus = 'expired';
-      await user.save();
-    }
+    if (error || !user) return res.status(404).json({ message: 'User not found' });
 
-    res.json({
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        plan: user.plan,
-        encryptionEnabled: user.encryptionEnabled,
-        masterKey: user.masterKey ? 'present' : null, // Don't expose actual key, just indicate presence
-        masterKeySalt: user.masterKeySalt ? 'present' : null,
-        subscriptionStatus: user.subscriptionStatus,
-        subscriptionEndDate: user.subscriptionEndDate,
-        storageUsed: user.storageUsed,
-        createdAt: user.createdAt,
-      },
-    });
+    res.json({ user: toPublicUser(user) });
   } catch (error) {
-    logger.error('Get me error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-/**
- * Upgrade a user to premium plan (via payment verification).
- * POST /api/auth/upgrade
- * Protected route
- */
-exports.upgradeToPremium = async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    if (user.plan === 'premium' && user.subscriptionStatus === 'active') {
-      return res.status(400).json({ message: 'User already has an active premium subscription' });
-    }
-
-    // This is a legacy endpoint - use /api/payment/verify for real upgrades
-    user.plan = 'premium';
-    user.subscriptionStatus = 'active';
-    user.subscriptionStartDate = new Date();
-    user.subscriptionEndDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-    await user.save();
-
-    logger.info(`[AUTH] User ${user._id} upgraded to premium`);
-
-    res.json({
-      message: 'Successfully upgraded to premium!',
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        plan: user.plan,
-        subscriptionStatus: user.subscriptionStatus,
-        subscriptionEndDate: user.subscriptionEndDate,
-      },
-    });
-  } catch (error) {
-    logger.error('Upgrade error:', error);
-    res.status(500).json({ message: 'Server error during upgrade' });
-  }
-};
-
 exports.checkEmailExists = async (req, res) => {
-  try {
-    const email = normalizeEmail(req.body.email);
-    if (!email) {
-      return res.status(400).json({ message: 'Email is required' });
-    }
-
-    const exists = await User.exists({ email });
-    return res.json({ exists: Boolean(exists) });
-  } catch (error) {
-    logger.error(`Email exists check error: ${error.message}`);
-    return res.status(500).json({ message: 'Server error' });
-  }
+  const email = normalizeEmail(req.body.email);
+  const { data } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
+  res.json({ exists: !!data });
 };
 
 exports.verifyEmailCode = async (req, res) => {
@@ -296,39 +180,44 @@ exports.verifyEmailCode = async (req, res) => {
       return res.status(400).json({ message: 'Email and code are required' });
     }
 
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const { data: user } = await supabase.from('users').select('*').eq('email', email).maybeSingle();
+    const verification = user?.email_verification || null;
 
-    if (!user.emailVerification?.codeHash || !user.emailVerification?.expiresAt) {
-      return res.status(400).json({ message: 'No active verification code. Please resend.' });
+    if (!user || !verification?.codeHash) {
+      return res.status(400).json({ message: 'Invalid code' });
     }
 
-    if (new Date() > new Date(user.emailVerification.expiresAt)) {
-      return res.status(400).json({ message: 'Verification code expired. Please resend.' });
+    if (verification.expiresAt && new Date(verification.expiresAt).getTime() < Date.now()) {
+      return res.status(400).json({ message: 'Code expired' });
     }
 
-    if ((user.emailVerification.attempts || 0) >= MAX_OTP_ATTEMPTS) {
+    const attempts = Number(verification.attempts || 0);
+    if (attempts >= MAX_OTP_ATTEMPTS) {
       return res.status(429).json({ message: 'Too many attempts. Please resend a new code.' });
     }
 
-    if (user.emailVerification.codeHash !== hashOtp(code)) {
-      user.emailVerification.attempts = (user.emailVerification.attempts || 0) + 1;
-      await user.save();
-      return res.status(400).json({ message: 'Invalid verification code' });
+    if (verification.codeHash !== hashOtp(code)) {
+      await supabase
+        .from('users')
+        .update({
+          email_verification: {
+            ...verification,
+            attempts: attempts + 1,
+          },
+        })
+        .eq('id', user.id);
+
+      return res.status(400).json({ message: 'Invalid code' });
     }
 
-    user.isEmailVerified = true;
-    user.emailVerification = {
-      codeHash: null,
-      expiresAt: null,
-      attempts: 0,
-      lastSentAt: user.emailVerification.lastSentAt,
-    };
-    await user.save();
+    await supabase
+      .from('users')
+      .update({ is_email_verified: true, email_verification: null })
+      .eq('id', user.id);
 
-    return res.json({ message: 'Email verified successfully' });
+    return res.json({ message: 'Verified' });
   } catch (error) {
-    logger.error(`Verify email error: ${error.message}`);
+    logger.error('Verify email code error:', error);
     return res.status(500).json({ message: 'Server error' });
   }
 };
@@ -340,40 +229,42 @@ exports.resendEmailVerificationCode = async (req, res) => {
       return res.status(400).json({ message: 'Email is required' });
     }
 
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const { data: user } = await supabase.from('users').select('*').eq('email', email).maybeSingle();
+    if (!user) {
+      // Avoid leaking whether email exists.
+      return res.json({ message: 'If this email exists, a verification code was sent.' });
+    }
 
-    if (user.isEmailVerified) {
+    if (user.is_email_verified) {
       return res.status(400).json({ message: 'Email is already verified' });
     }
 
-    if (isWithinCooldown(user.emailVerification?.lastSentAt)) {
-      const remaining = cooldownRemainingSeconds(user.emailVerification?.lastSentAt);
-      return res.status(200).json({
-        message: `Verification code already sent recently. Please wait ${remaining}s and try again.`,
+    const lastSentAt = user.email_verification?.lastSentAt;
+    if (isWithinCooldown(lastSentAt)) {
+      return res.status(429).json({
+        message: 'Please wait before requesting another code',
+        waitSeconds: cooldownRemainingSeconds(lastSentAt),
       });
     }
 
     const code = generateOtp();
-    user.emailVerification = {
-      codeHash: hashOtp(code),
-      expiresAt: new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000),
-      attempts: 0,
-      lastSentAt: new Date(),
-    };
-    await user.save();
+    const emailVerification = buildOtpPayload(code);
 
-    const tpl = otpTemplate('Verify your FileShare email', code, OTP_TTL_MINUTES);
-    await sendEmail({
-      to: user.email,
-      subject: 'FileShare email verification code',
-      text: tpl.text,
-      html: tpl.html,
-    });
+    await supabase
+      .from('users')
+      .update({ email_verification: emailVerification })
+      .eq('id', user.id);
+
+    try {
+      const tpl = otpTemplate('Verify your FileShare email', code, OTP_TTL_MINUTES);
+      await sendEmail({ to: user.email, subject: 'FileShare email verification code', ...tpl });
+    } catch (mailErr) {
+      logger.error(`[AUTH] resend verification email failed: ${mailErr.message}`);
+    }
 
     return res.json({ message: 'Verification code sent' });
   } catch (error) {
-    logger.error(`Resend verification error: ${error.message}`);
+    logger.error('Resend verification error:', error);
     return res.status(500).json({ message: 'Server error' });
   }
 };
@@ -381,96 +272,115 @@ exports.resendEmailVerificationCode = async (req, res) => {
 exports.forgotPassword = async (req, res) => {
   try {
     const email = normalizeEmail(req.body.email);
-    if (!email) return res.status(400).json({ message: 'Email is required' });
-
-    const user = await User.findOne({ email }).select('+masterKey +masterKeySalt');
-
-    // Security: same response regardless of existence
-    if (!user) {
-      return res.json({ message: 'If this email exists, a reset code has been sent.' });
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
     }
 
-    if (isWithinCooldown(user.passwordReset?.lastSentAt)) {
-      const remaining = cooldownRemainingSeconds(user.passwordReset?.lastSentAt);
-      return res.status(200).json({
-        message: `Reset code already sent recently. Please wait ${remaining}s and try again.`,
+    const { data: user } = await supabase.from('users').select('*').eq('email', email).maybeSingle();
+    if (!user) {
+      return res.json({ message: 'Code sent if email exists' });
+    }
+
+    const lastSentAt = user.password_reset?.lastSentAt;
+    if (isWithinCooldown(lastSentAt)) {
+      return res.status(429).json({
+        message: 'Please wait before requesting another code',
+        waitSeconds: cooldownRemainingSeconds(lastSentAt),
       });
     }
 
     const code = generateOtp();
-    user.passwordReset = {
-      codeHash: hashOtp(code),
-      expiresAt: new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000),
-      attempts: 0,
-      lastSentAt: new Date(),
-    };
-    await user.save();
+    const passwordReset = buildOtpPayload(code);
 
-    const tpl = otpTemplate('Reset your FileShare password', code, OTP_TTL_MINUTES);
-    await sendEmail({
-      to: user.email,
-      subject: 'FileShare password reset code',
-      text: tpl.text,
-      html: tpl.html,
-    });
+    await supabase.from('users').update({ password_reset: passwordReset }).eq('id', user.id);
 
-    return res.json({ message: 'If this email exists, a reset code has been sent.' });
+    try {
+      const tpl = otpTemplate('Reset your FileShare password', code, OTP_TTL_MINUTES);
+      await sendEmail({ to: user.email, subject: 'FileShare password reset code', ...tpl });
+    } catch (mailErr) {
+      logger.error(`[AUTH] forgot password email failed: ${mailErr.message}`);
+    }
+
+    return res.json({ message: 'Code sent if email exists' });
   } catch (error) {
-    logger.error(`Forgot password error: ${error.message}`);
+    logger.error('Forgot password error:', error);
     return res.status(500).json({ message: 'Server error' });
   }
 };
 
 exports.resetPassword = async (req, res) => {
   try {
-    const email = normalizeEmail(req.body.email);
-    const code = String(req.body.code || '').trim();
-    const newPassword = String(req.body.newPassword || '');
+    const { email, code, newPassword } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
-    if (!email || !code || !newPassword) {
-      return res.status(400).json({ message: 'Email, code and newPassword are required' });
+    if (!normalizedEmail || !code || !newPassword) {
+      return res.status(400).json({ message: 'Email, code and new password are required' });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    const { data: user } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
+
+    const passwordReset = user?.password_reset || null;
+    if (!user || !passwordReset?.codeHash) {
+      return res.status(400).json({ message: 'Invalid code' });
     }
 
-    const user = await User.findOne({ email }).select('+password +masterKey +masterKeySalt');
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    if (!user.passwordReset?.codeHash || !user.passwordReset?.expiresAt) {
-      return res.status(400).json({ message: 'No active reset code. Please request again.' });
+    if (passwordReset.expiresAt && new Date(passwordReset.expiresAt).getTime() < Date.now()) {
+      return res.status(400).json({ message: 'Code expired' });
     }
 
-    if (new Date() > new Date(user.passwordReset.expiresAt)) {
-      return res.status(400).json({ message: 'Reset code expired. Please request again.' });
+    if (passwordReset.codeHash !== hashOtp(String(code).trim())) {
+      return res.status(400).json({ message: 'Invalid code' });
     }
 
-    if ((user.passwordReset.attempts || 0) >= MAX_OTP_ATTEMPTS) {
-      return res.status(429).json({ message: 'Too many attempts. Please request a new code.' });
-    }
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    if (user.passwordReset.codeHash !== hashOtp(code)) {
-      user.passwordReset.attempts = (user.passwordReset.attempts || 0) + 1;
-      await user.save();
-      return res.status(400).json({ message: 'Invalid reset code' });
-    }
+    await supabase
+      .from('users')
+      .update({
+        password: hashedPassword,
+        password_reset: null,
+      })
+      .eq('id', user.id);
 
-    const { key: masterKey, salt: masterKeySalt } = encryptionUtils.generateMasterKey(newPassword);
-    user.masterKey = encryptionUtils.encryptMasterKeyForStorage(masterKey);
-    user.masterKeySalt = masterKeySalt;
-    user.password = newPassword;
-    user.passwordReset = {
-      codeHash: null,
-      expiresAt: null,
-      attempts: 0,
-      lastSentAt: user.passwordReset.lastSentAt,
-    };
-
-    await user.save();
-    return res.json({ message: 'Password reset successful. Please login.' });
+    return res.json({ message: 'Password updated successfully' });
   } catch (error) {
-    logger.error(`Reset password error: ${error.message}`);
+    logger.error('Reset password error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.upgradeToPremium = async (req, res) => {
+  try {
+    const subscriptionEndDate = new Date();
+    subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
+
+    const { data: user, error } = await supabase
+      .from('users')
+      .update({
+        plan: 'premium',
+        subscription_status: 'active',
+        subscription_end_date: subscriptionEndDate.toISOString(),
+      })
+      .eq('id', req.user.id)
+      .select('*')
+      .single();
+
+    if (error || !user) {
+      return res.status(500).json({ message: 'Unable to upgrade user plan' });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Upgraded to premium successfully',
+      user: toPublicUser(user),
+    });
+  } catch (error) {
+    logger.error('Upgrade to premium error:', error);
     return res.status(500).json({ message: 'Server error' });
   }
 };

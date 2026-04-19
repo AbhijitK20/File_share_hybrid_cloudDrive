@@ -24,10 +24,15 @@ export default function Pricing() {
       // 1. Create Order on Backend
       const orderRes = await api.post('/payment/create-order');
       const order = orderRes.data.order;
+      const keyId = orderRes.data.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID;
+
+      if (!keyId) {
+        throw new Error('Payment key missing. Please contact support.');
+      }
 
       // 2. Initialize Razorpay Checkout
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_placeholder', // Usually fetched from backend or env
+        key: keyId,
         amount: order.amount,
         currency: order.currency,
         name: 'FileShare',
@@ -68,6 +73,11 @@ export default function Pricing() {
       };
 
       const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        console.error('Razorpay payment failed:', response?.error || response);
+        alert(response?.error?.description || 'Payment failed. Please try another payment method.');
+        setUpgrading(false);
+      });
       rzp.open();
 
     } catch (err) {

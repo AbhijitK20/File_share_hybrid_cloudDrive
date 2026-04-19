@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const supabase = require('../utils/supabase');
 
 /**
  * Protect routes — verify JWT token and attach user to request.
@@ -20,9 +20,14 @@ const protect = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Attach user to request (without password)
-    const user = await User.findById(decoded.id);
-    if (!user) {
+    // Attach user to request (without password) from Supabase
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', decoded.id)
+      .single();
+
+    if (error || !user) {
       return res.status(401).json({ message: 'Not authorized. User no longer exists.' });
     }
 
@@ -51,7 +56,12 @@ const optionalAuth = async (req, res, next) => {
 
     if (token) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.id);
+      const { data: user } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', decoded.id)
+        .single();
+      
       if (user) {
         req.user = user;
       }
@@ -59,7 +69,6 @@ const optionalAuth = async (req, res, next) => {
 
     next();
   } catch (error) {
-    // Silently continue without user
     next();
   }
 };

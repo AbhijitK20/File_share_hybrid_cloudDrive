@@ -1,621 +1,666 @@
-const File = require('../models/File');
-const User = require('../models/User');
-const path = require('path');
-const fs = require('fs');
+const supabase = require('../utils/supabase');
 const { logger } = require('../utils/logger');
 
-function appendActivity(file, { user, action, details }) {
-  if (!file.activityLogs) file.activityLogs = [];
-  file.activityLogs.push({
-    userId: user?._id || null,
-    email: user?.email || null,
-    name: user?.name || 'Anonymous',
-    action,
-    details: details || '',
-    at: new Date(),
-  });
-  if (file.activityLogs.length > 200) {
-    file.activityLogs = file.activityLogs.slice(-200);
+const ALLOWED_VISIBILITY = ['public', 'private'];
+const ALLOWED_ACCESS_MODES = ['public', 'allowlist', 'blocklist'];
+const ALLOWED_PERMISSION_VALUES = ['view', 'edit', 'delete'];
+
+function normalizeEmail(email = '') {
+  return String(email).trim().toLowerCase();
+}
+
+function normalizePermissions(permissions) {
+  const list = Array.isArray(permissions) ? permissions : ['view'];
+  const unique = [...new Set(list.filter((p) => ALLOWED_PERMISSION_VALUES.includes(p)))];
+  if (unique.length === 0) return ['view'];
+  if (unique.includes('edit') && !unique.includes('view')) unique.unshift('view');
+  return unique;
+}
+
+function getClientIp(req) {
+  return req.headers['x-forwarded-for'] || req.ip || null;
+}
+
+async function getOwnedFile(fileId, ownerId) {
+  const { data, error } = await supabase
+    .from('files')
+    .select('*')
+    .eq('id', fileId)
+    .eq('uploaded_by_id', ownerId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data;
+}
+
+async function logActivity({ fileId, actorUserId, actorEmail, action, details, ipAddress }) {
+  try {
+    await supabase.from('file_activity').insert([
+      {
+        file_id: fileId,
+        actor_user_id: actorUserId || null,
+        actor_email: actorEmail || null,
+        action,
+        details: details || null,
+        ip_address: ipAddress || null,
+      },
+    ]);
+  } catch (error) {
+    logger.warn(`Activity log failed (${action}) for file ${fileId}: ${error.message}`);
   }
 }
 
-/**
- * Get all files owned by the authenticated user.
- * GET /api/dashboard/files
- */
+async function getUsersMapByIds(userIds = []) {
+  if (!userIds || userIds.length === 0) return new Map();
+
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, email, name')
+    .in('id', userIds);
+
+  return new Map((users || []).map((u) => [u.id, u]));
+}
+
 exports.getMyFiles = async (req, res) => {
   try {
-    const files = await File.find({ uploadedBy: req.user._id })
-      .sort({ createdAt: -1 });
+    const { data: files, error } = await supabase
+      .from('files')
+      .select('*')
+      .eq('uploaded_by_id', req.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
 
     res.json({
       count: files.length,
       files: files.map(f => ({
-        id: f._id,
-        name: f.originalName,
+        id: f.id,
+        name: f.original_name,
         size: f.size,
-        compressedSize: f.compressedSize,
+        groupCode: f.group_code,
         mimetype: f.mimetype,
-        groupCode: f.groupCode,
         visibility: f.visibility,
+        accessMode: f.access_mode,
         encrypted: f.encryption?.enabled || false,
-        compressed: f.isCompressed,
-        accessControl: f.accessControl?.mode || 'public',
-        accessControlDetails: {
-          mode: f.accessControl?.mode || 'public',
-          blockedUsers: (f.accessControl?.blockedUsers || []).map((b) => b.userId),
-          allowedUsers: (f.accessControl?.allowedUsers || []).map((a) => ({
-            userId: a.userId,
-            permissions: a.permissions || ['view'],
-          })),
-        },
-        insights: {
-          sharedWithCount: (f.accessControl?.allowedUsers || []).length,
-          viewedByCount: (f.accessInsights?.viewedBy || []).length,
-          editedByCount: (f.accessInsights?.editedBy || []).length,
-        },
-        createdAt: f.createdAt,
-        expiresAt: f.expiresAt,
+        expiresAt: f.expires_at,
+        createdAt: f.created_at,
       })),
     });
   } catch (error) {
-    logger.error('Dashboard files error:', error);
+    logger.error('Dashboard error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-/**
- * Delete a file owned by the user.
- * DELETE /api/dashboard/files/:id
- */
 exports.deleteFile = async (req, res) => {
   try {
-    const file = await File.findById(req.params.id);
+    const { id } = req.params;
+    const file = await getOwnedFile(id, req.user.id);
+    if (!file) return res.status(404).json({ message: 'File not found' });
 
-    if (!file) {
-      return res.status(404).json({ message: 'File not found' });
+    // Delete from Storage
+    const { error: storageError } = await supabase.storage.from('uploads').remove([file.filename]);
+    if (storageError) {
+      logger.warn(`Storage deletion warning for file ${id}: ${storageError.message}`);
     }
+    
+    // Delete from DB
+    const { error: deleteError } = await supabase.from('files').delete().eq('id', id);
+    if (deleteError) throw deleteError;
 
-    // Check ownership
-    if (!file.uploadedBy || file.uploadedBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized to delete this file' });
-    }
+    const bytesToSubtract = file.compressed_size || file.size || 0;
+    const nextStorage = Math.max(0, Number(req.user.storage_used || 0) - Number(bytesToSubtract));
+    await supabase.from('users').update({ storage_used: nextStorage }).eq('id', req.user.id);
 
-    // Delete physical file
-    const filePath = path.join(__dirname, '..', 'uploads', file.filename);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-
-    // Delete DB record
-    await File.findByIdAndDelete(file._id);
-
-    logger.info(`[DELETE] File deleted: ${file.originalName} by ${req.user._id}`);
-    res.json({ message: 'File deleted successfully' });
+    res.json({ message: 'File deleted' });
   } catch (error) {
     logger.error('Delete file error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Delete error' });
   }
 };
 
-/**
- * Extend file expiry.
- * PATCH /api/dashboard/files/:id/extend
- */
 exports.extendExpiry = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    const { id } = req.params;
 
-    if (user.plan !== 'premium') {
+    if (req.user.plan !== 'premium') {
       return res.status(403).json({
-        message: 'Expiry extension is available only for premium users',
+        message: 'Only Pro users can extend file expiration',
       });
     }
 
-    const file = await File.findById(req.params.id);
-
-    if (!file) {
-      return res.status(404).json({ message: 'File not found' });
+    const days = Number(req.body.days ?? 7);
+    if (!Number.isFinite(days) || days <= 0) {
+      return res.status(400).json({ message: 'days must be a positive number' });
     }
 
-    // Check ownership
-    if (!file.uploadedBy || file.uploadedBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized to modify this file' });
+    const file = await getOwnedFile(id, req.user.id);
+    if (!file) return res.status(404).json({ message: 'File not found' });
+
+    const now = Date.now();
+    const currentExpiry = new Date(file.expires_at).getTime();
+    const base = currentExpiry > now ? currentExpiry : now;
+    const nextExpiryDate = new Date(base + days * 24 * 60 * 60 * 1000);
+    if (Number.isNaN(nextExpiryDate.getTime())) {
+      return res.status(400).json({ message: 'Invalid expiry extension value' });
     }
+    const nextExpiry = nextExpiryDate.toISOString();
 
-    const { days } = req.body;
-    const parsedDays = parseInt(days, 10);
-    const extendDays = Math.min(Math.max(Number.isFinite(parsedDays) ? parsedDays : 7, 1), 30);
+    const { error } = await supabase
+      .from('files')
+      .update({ expires_at: nextExpiry })
+      .eq('id', id)
+      .eq('uploaded_by_id', req.user.id);
 
-    const baseDate = new Date(Math.max(file.expiresAt.getTime(), Date.now()));
-    file.expiresAt = new Date(baseDate.getTime() + extendDays * 24 * 60 * 60 * 1000);
-    appendActivity(file, {
-      user: req.user,
+    if (error) throw error;
+
+    await logActivity({
+      fileId: id,
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
       action: 'expiry_extended',
-      details: `Extended by ${extendDays} day(s)`,
+      details: `Extended by ${days} day(s)`,
+      ipAddress: getClientIp(req),
     });
-    await file.save();
 
-    res.json({
-      message: `Expiry extended by ${extendDays} day(s)`,
-      expiresAt: file.expiresAt,
-    });
+    return res.json({ message: 'Expiry extended', expiresAt: nextExpiry });
   } catch (error) {
     logger.error('Extend expiry error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Failed to extend expiry' });
   }
 };
 
-/**
- * Get dashboard stats for the user.
- * GET /api/dashboard/stats
- */
-exports.getStats = async (req, res) => {
+exports.toggleVisibility = async (req, res) => {
   try {
-    const totalFiles = await File.countDocuments({ uploadedBy: req.user._id });
-    const activeFiles = await File.countDocuments({
-      uploadedBy: req.user._id,
-      expiresAt: { $gt: new Date() },
+    const { id } = req.params;
+    const { visibility } = req.body;
+
+    if (!ALLOWED_VISIBILITY.includes(visibility)) {
+      return res.status(400).json({ message: 'Invalid visibility value' });
+    }
+
+    const file = await getOwnedFile(id, req.user.id);
+    if (!file) return res.status(404).json({ message: 'File not found' });
+
+    const { error } = await supabase
+      .from('files')
+      .update({ visibility })
+      .eq('id', id)
+      .eq('uploaded_by_id', req.user.id);
+
+    if (error) throw error;
+
+    await logActivity({
+      fileId: id,
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'visibility_updated',
+      details: `Visibility changed to ${visibility}`,
+      ipAddress: getClientIp(req),
     });
 
-    const files = await File.find({ uploadedBy: req.user._id });
-    const totalSize = files.reduce((sum, f) => sum + f.size, 0);
-    const totalCompressedSize = files.reduce((sum, f) => sum + (f.compressedSize || f.size), 0);
-    const spaceSaved = totalSize - totalCompressedSize;
-    const encryptedFiles = files.filter(f => f.encryption?.enabled).length;
-    const compressedFiles = files.filter(f => f.isCompressed).length;
+    return res.json({ message: 'Visibility updated', visibility });
+  } catch (error) {
+    logger.error('Toggle visibility error:', error);
+    return res.status(500).json({ message: 'Failed to update visibility' });
+  }
+};
 
-    const uniqueCodes = [...new Set(files.map(f => f.groupCode))];
+exports.getStats = async (req, res) => {
+  try {
+    const { data: files } = await supabase
+      .from('files')
+      .select('id, size, expires_at, encryption')
+      .eq('uploaded_by_id', req.user.id);
+
+    const totalFiles = files?.length || 0;
+    const totalSize = files?.reduce((sum, f) => sum + f.size, 0) || 0;
+    const nowIso = new Date().toISOString();
+    const activeFiles = (files || []).filter((f) => f.expires_at > nowIso).length;
+
+    const ownedFileIds = (files || []).map((f) => f.id);
+    let totalShares = 0;
+
+    if (ownedFileIds.length > 0) {
+      const { count } = await supabase
+        .from('file_permissions')
+        .select('*', { count: 'exact', head: true })
+        .in('file_id', ownedFileIds)
+        .eq('permission_type', 'allow');
+
+      totalShares = Number(count || 0);
+    }
 
     res.json({
       totalFiles,
       activeFiles,
-      expiredFiles: totalFiles - activeFiles,
+      totalShares,
       totalSize,
-      totalCompressedSize,
-      spaceSaved,
-      spaceSavedPercentage: totalSize > 0 ? ((spaceSaved / totalSize) * 100).toFixed(2) : 0,
-      encryptedFiles,
-      compressedFiles,
-      totalShares: uniqueCodes.length,
+      encryptedFiles: files?.filter(f => f.encryption?.enabled).length || 0,
     });
   } catch (error) {
     logger.error('Stats error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Stats error' });
   }
 };
 
-/**
- * Toggle file visibility between public and private.
- * PATCH /api/dashboard/files/:id/visibility
- */
-exports.toggleVisibility = async (req, res) => {
-  try {
-    const file = await File.findById(req.params.id);
-
-    if (!file) {
-      return res.status(404).json({ message: 'File not found' });
-    }
-
-    // Check ownership
-    if (!file.uploadedBy || file.uploadedBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized to modify this file' });
-    }
-
-    const { visibility } = req.body;
-
-    if (!['public', 'private', 'shared'].includes(visibility)) {
-      return res.status(400).json({ message: 'Invalid visibility status' });
-    }
-
-    file.visibility = visibility;
-    appendActivity(file, {
-      user: req.user,
-      action: 'visibility_changed',
-      details: `Visibility set to ${visibility}`,
-    });
-    await file.save();
-
-    res.json({
-      message: `File visibility updated to ${visibility}`,
-      visibility: file.visibility,
-    });
-  } catch (error) {
-    logger.error('Toggle visibility error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-/**
- * Update file access control settings
- * PATCH /api/dashboard/files/:id/access
- * 
- * Body: { mode: 'public' | 'allowlist' | 'blocklist' }
- */
 exports.updateAccessControl = async (req, res) => {
   try {
-    const file = await File.findById(req.params.id);
-
-    if (!file) {
-      return res.status(404).json({ message: 'File not found' });
-    }
-
-    // Check ownership
-    if (!file.uploadedBy || file.uploadedBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized to modify this file' });
-    }
-
+    const { id } = req.params;
     const { mode } = req.body;
 
-    if (!['public', 'allowlist', 'blocklist'].includes(mode)) {
-      return res.status(400).json({ message: 'Invalid access control mode' });
+    if (!ALLOWED_ACCESS_MODES.includes(mode)) {
+      return res.status(400).json({ message: 'Invalid access mode' });
     }
 
-    if (!file.accessControl) {
-      file.accessControl = {};
-    }
+    const file = await getOwnedFile(id, req.user.id);
+    if (!file) return res.status(404).json({ message: 'File not found' });
 
-    file.accessControl.mode = mode;
-    await file.save();
+    const { error } = await supabase
+      .from('files')
+      .update({ access_mode: mode })
+      .eq('id', id)
+      .eq('uploaded_by_id', req.user.id);
 
-    logger.info(`[ACCESS CONTROL] File ${file._id} access mode changed to ${mode}`);
+    if (error) throw error;
 
-    res.json({
-      message: `Access control updated to ${mode}`,
-      accessControl: file.accessControl,
+    await logActivity({
+      fileId: id,
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'access_mode_updated',
+      details: `Access mode changed to ${mode}`,
+      ipAddress: getClientIp(req),
     });
+
+    return res.json({ message: 'Access mode updated', mode });
   } catch (error) {
     logger.error('Update access control error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Failed to update access control' });
   }
 };
 
-/**
- * Get detailed file permissions
- * GET /api/dashboard/files/:id/permissions
- */
 exports.getFilePermissions = async (req, res) => {
   try {
-    const file = await File.findById(req.params.id).populate('accessControl.allowedUsers.userId', 'name email');
+    const { id } = req.params;
+    const file = await getOwnedFile(id, req.user.id);
+    if (!file) return res.status(404).json({ message: 'File not found' });
 
-    if (!file) {
-      return res.status(404).json({ message: 'File not found' });
-    }
+    const { data: permissionRows, error } = await supabase
+      .from('file_permissions')
+      .select('user_id, permission_type, permissions')
+      .eq('file_id', id);
 
-    // Check ownership
-    if (!file.uploadedBy || file.uploadedBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized to view this file permissions' });
-    }
+    if (error) throw error;
 
-    res.json({
-      fileId: file._id,
-      fileName: file.originalName,
+    const userIds = [...new Set((permissionRows || []).map((r) => r.user_id).filter(Boolean))];
+    const usersMap = await getUsersMapByIds(userIds);
+
+    const allowedUsers = (permissionRows || [])
+      .filter((r) => r.permission_type === 'allow')
+      .map((r) => {
+        const user = usersMap.get(r.user_id) || {};
+        return {
+          userId: r.user_id,
+          email: user.email || null,
+          name: user.name || null,
+          permissions: normalizePermissions(r.permissions),
+        };
+      });
+
+    const blockedUsers = (permissionRows || [])
+      .filter((r) => r.permission_type === 'block')
+      .map((r) => {
+        const user = usersMap.get(r.user_id) || {};
+        return {
+          userId: r.user_id,
+          email: user.email || null,
+          name: user.name || null,
+        };
+      });
+
+    return res.json({
+      fileId: id,
       visibility: file.visibility,
-      accessControl: {
-        mode: file.accessControl?.mode || 'public',
-        blockedUsers: file.accessControl?.blockedUsers || [],
-        allowedUsers: (file.accessControl?.allowedUsers || []).map(au => ({
-          userId: au.userId?._id,
-          email: au.userId?.email,
-          name: au.userId?.name,
-          permissions: au.permissions,
-          grantedAt: au.grantedAt,
-        })),
-      },
+      mode: file.access_mode,
+      allowedUsers,
+      blockedUsers,
     });
   } catch (error) {
-    logger.error('Get permissions error:', error);
-    res.status(500).json({ message: 'Server error' });
+    logger.error('Get file permissions error:', error);
+    return res.status(500).json({ message: 'Failed to load file permissions' });
   }
 };
 
-/**
- * Add a user to blocklist
- * POST /api/dashboard/files/:id/blocklist
- * Body: { userId: string }
- */
 exports.addBlockedUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId } = req.body;
+    const file = await getOwnedFile(id, req.user.id);
+    if (!file) return res.status(404).json({ message: 'File not found' });
 
-    if (!userId) {
-      return res.status(400).json({ message: 'userId is required' });
+    let targetUserId = req.body.userId || null;
+    let targetEmail = normalizeEmail(req.body.email || '');
+
+    if (!targetUserId && targetEmail) {
+      const { data: user } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('email', targetEmail)
+        .maybeSingle();
+      if (!user) return res.status(404).json({ message: 'User with this email not found' });
+      targetUserId = user.id;
+      targetEmail = user.email;
     }
 
-    const file = await File.findById(id);
-
-    if (!file) {
-      return res.status(404).json({ message: 'File not found' });
-    }
-
-    // Check ownership
-    if (!file.uploadedBy || file.uploadedBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-
-    // Verify user exists
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    // Check if already blocked
-    if (file.accessControl?.blockedUsers?.some(b => b.userId.toString() === userId)) {
-      return res.status(400).json({ message: 'User already blocked' });
-    }
-
-    if (!file.accessControl) {
-      file.accessControl = { mode: 'blocklist' };
-    }
-
-    if (!file.accessControl.blockedUsers) {
-      file.accessControl.blockedUsers = [];
-    }
-
-    file.accessControl.blockedUsers.push({ userId, blockedAt: new Date() });
-    await file.save();
-
-    logger.info(`[BLOCKLIST] User ${userId} blocked from file ${id}`);
-
-    res.json({
-      message: 'User added to blocklist',
-      blockedUsers: file.accessControl.blockedUsers,
-    });
-  } catch (error) {
-    logger.error('Add blocked user error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-/**
- * Remove a user from blocklist
- * DELETE /api/dashboard/files/:id/blocklist/:userId
- */
-exports.removeBlockedUser = async (req, res) => {
-  try {
-    const { id, userId } = req.params;
-
-    const file = await File.findById(id);
-
-    if (!file) {
-      return res.status(404).json({ message: 'File not found' });
-    }
-
-    // Check ownership
-    if (!file.uploadedBy || file.uploadedBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-
-    if (!file.accessControl?.blockedUsers) {
-      return res.status(404).json({ message: 'User not in blocklist' });
-    }
-
-    file.accessControl.blockedUsers = file.accessControl.blockedUsers.filter(
-      b => b.userId.toString() !== userId
-    );
-
-    await file.save();
-
-    logger.info(`[BLOCKLIST] User ${userId} removed from blocklist of file ${id}`);
-
-    res.json({
-      message: 'User removed from blocklist',
-      blockedUsers: file.accessControl.blockedUsers,
-    });
-  } catch (error) {
-    logger.error('Remove blocked user error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-/**
- * Add a user to allowlist with permissions
- * POST /api/dashboard/files/:id/allowlist
- * Body: { userId: string, permissions: ['view'] | ['view', 'edit'] }
- */
-exports.addAllowedUser = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { userId, email, permissions = ['view'] } = req.body;
-
-    if (!userId && !email) {
+    if (!targetUserId) {
       return res.status(400).json({ message: 'userId or email is required' });
     }
 
-    const file = await File.findById(id);
-
-    if (!file) {
-      return res.status(404).json({ message: 'File not found' });
+    if (targetUserId === req.user.id) {
+      return res.status(400).json({ message: 'You cannot block yourself' });
     }
 
-    // Check ownership
-    if (!file.uploadedBy || file.uploadedBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
+    const { error: permissionError } = await supabase
+      .from('file_permissions')
+      .upsert(
+        [
+          {
+            file_id: id,
+            user_id: targetUserId,
+            permission_type: 'block',
+            permissions: [],
+          },
+        ],
+        { onConflict: 'file_id,user_id' }
+      );
 
-    // Verify user exists
-    const user = userId
-      ? await User.findById(userId)
-      : await User.findOne({ email: String(email).trim().toLowerCase() });
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    const targetUserId = user._id.toString();
+    if (permissionError) throw permissionError;
 
-    // Validate permissions
-    const validPermissions = ['view', 'edit', 'delete'];
-    if (!Array.isArray(permissions) || !permissions.every(p => validPermissions.includes(p))) {
-      return res.status(400).json({ message: 'Invalid permissions' });
-    }
+    await supabase
+      .from('files')
+      .update({ access_mode: 'blocklist' })
+      .eq('id', id)
+      .eq('uploaded_by_id', req.user.id);
 
-    // Check if already allowed
-    if (file.accessControl?.allowedUsers?.some(a => a.userId.toString() === targetUserId)) {
-      return res.status(400).json({ message: 'User already in allowlist' });
-    }
-
-    if (!file.accessControl) {
-      file.accessControl = { mode: 'allowlist' };
-    }
-
-    if (!file.accessControl.allowedUsers) {
-      file.accessControl.allowedUsers = [];
-    }
-
-    file.accessControl.allowedUsers.push({ userId: targetUserId, permissions, grantedAt: new Date() });
-    appendActivity(file, {
-      user: req.user,
-      action: 'share_granted',
-      details: `Granted ${permissions.join(',')} to ${user.email}`,
+    await logActivity({
+      fileId: id,
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'block_added',
+      details: targetEmail || targetUserId,
+      ipAddress: getClientIp(req),
     });
-    await file.save();
 
-    logger.info(`[ALLOWLIST] User ${targetUserId} added to file ${id} with permissions: ${permissions.join(',')}`);
-
-    res.json({
-      message: 'User added to allowlist',
-      user: { id: user._id, email: user.email, name: user.name },
-      allowedUsers: file.accessControl.allowedUsers,
-    });
+    return res.json({ message: 'User added to blocklist' });
   } catch (error) {
-    logger.error('Add allowed user error:', error);
-    res.status(500).json({ message: 'Server error' });
+    logger.error('Add blocked user error:', error);
+    return res.status(500).json({ message: 'Failed to add blocked user' });
   }
 };
 
-/**
- * Update allowlist permissions by user id
- * PATCH /api/dashboard/files/:id/allowlist/:userId
- * Body: { permissions: ['view'] | ['view', 'edit'] }
- */
-exports.updateAllowedUserPermissions = async (req, res) => {
+exports.removeBlockedUser = async (req, res) => {
   try {
     const { id, userId } = req.params;
-    const { permissions } = req.body;
-
-    if (!Array.isArray(permissions) || permissions.length === 0) {
-      return res.status(400).json({ message: 'permissions array is required' });
-    }
-
-    const validPermissions = ['view', 'edit', 'delete'];
-    if (!permissions.every((p) => validPermissions.includes(p))) {
-      return res.status(400).json({ message: 'Invalid permissions' });
-    }
-
-    const file = await File.findById(id);
+    const file = await getOwnedFile(id, req.user.id);
     if (!file) return res.status(404).json({ message: 'File not found' });
 
-    if (!file.uploadedBy || file.uploadedBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
+    const { error } = await supabase
+      .from('file_permissions')
+      .delete()
+      .eq('file_id', id)
+      .eq('user_id', userId)
+      .eq('permission_type', 'block');
 
-    const target = file.accessControl?.allowedUsers?.find((a) => a.userId.toString() === userId);
-    if (!target) {
-      return res.status(404).json({ message: 'User not in allowlist' });
-    }
+    if (error) throw error;
 
-    target.permissions = permissions;
-    appendActivity(file, {
-      user: req.user,
-      action: 'permission_updated',
-      details: `Updated permissions for ${userId} to ${permissions.join(',')}`,
+    await logActivity({
+      fileId: id,
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'block_removed',
+      details: userId,
+      ipAddress: getClientIp(req),
     });
-    await file.save();
 
-    return res.json({
-      message: 'Permissions updated',
-      userId,
-      permissions,
-    });
+    return res.json({ message: 'User removed from blocklist' });
   } catch (error) {
-    logger.error('Update allowed user permissions error:', error);
-    return res.status(500).json({ message: 'Server error' });
+    logger.error('Remove blocked user error:', error);
+    return res.status(500).json({ message: 'Failed to remove blocked user' });
   }
 };
 
-/**
- * Remove a user from allowlist
- * DELETE /api/dashboard/files/:id/allowlist/:userId
- */
-exports.removeAllowedUser = async (req, res) => {
+exports.addAllowedUser = async (req, res) => {
   try {
-    const { id, userId } = req.params;
-
-    const file = await File.findById(id);
-
-    if (!file) {
-      return res.status(404).json({ message: 'File not found' });
-    }
-
-    // Check ownership
-    if (!file.uploadedBy || file.uploadedBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-
-    if (!file.accessControl?.allowedUsers) {
-      return res.status(404).json({ message: 'User not in allowlist' });
-    }
-
-    file.accessControl.allowedUsers = file.accessControl.allowedUsers.filter(
-      a => a.userId.toString() !== userId
-    );
-    appendActivity(file, {
-      user: req.user,
-      action: 'share_removed',
-      details: `Removed access for ${userId}`,
-    });
-
-    await file.save();
-
-    logger.info(`[ALLOWLIST] User ${userId} removed from allowlist of file ${id}`);
-
-    res.json({
-      message: 'User removed from allowlist',
-      allowedUsers: file.accessControl.allowedUsers,
-    });
-  } catch (error) {
-    logger.error('Remove allowed user error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-/**
- * Get file sharing analytics and activity timeline
- * GET /api/dashboard/files/:id/activity
- */
-exports.getFileActivity = async (req, res) => {
-  try {
-    const file = await File.findById(req.params.id).populate('accessControl.allowedUsers.userId', 'name email');
-
+    const { id } = req.params;
+    const file = await getOwnedFile(id, req.user.id);
     if (!file) return res.status(404).json({ message: 'File not found' });
-    if (!file.uploadedBy || file.uploadedBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized' });
+
+    const email = normalizeEmail(req.body.email);
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
     }
+
+    const { data: targetUser } = await supabase
+      .from('users')
+      .select('id, email, name')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (!targetUser) {
+      return res.status(404).json({ message: 'User with this email not found' });
+    }
+
+    if (targetUser.id === req.user.id) {
+      return res.status(400).json({ message: 'You already own this file' });
+    }
+
+    const permissions = normalizePermissions(req.body.permissions);
+    const { error: permissionError } = await supabase
+      .from('file_permissions')
+      .upsert(
+        [
+          {
+            file_id: id,
+            user_id: targetUser.id,
+            permission_type: 'allow',
+            permissions,
+          },
+        ],
+        { onConflict: 'file_id,user_id' }
+      );
+
+    if (permissionError) throw permissionError;
+
+    await supabase
+      .from('files')
+      .update({ access_mode: 'allowlist' })
+      .eq('id', id)
+      .eq('uploaded_by_id', req.user.id);
+
+    await logActivity({
+      fileId: id,
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'share_added',
+      details: `${targetUser.email} (${permissions.join(',')})`,
+      ipAddress: getClientIp(req),
+    });
 
     return res.json({
-      fileId: file._id,
-      fileName: file.originalName,
-      sharedWith: (file.accessControl?.allowedUsers || []).map((entry) => ({
-        userId: entry.userId?._id || entry.userId,
-        name: entry.userId?.name || null,
-        email: entry.userId?.email || null,
-        permissions: entry.permissions || ['view'],
-        grantedAt: entry.grantedAt,
-      })),
-      viewedBy: file.accessInsights?.viewedBy || [],
-      editedBy: file.accessInsights?.editedBy || [],
-      activityLogs: (file.activityLogs || []).sort((a, b) => new Date(b.at) - new Date(a.at)),
-      summary: {
-        sharedWithCount: (file.accessControl?.allowedUsers || []).length,
-        viewedByCount: (file.accessInsights?.viewedBy || []).length,
-        editedByCount: (file.accessInsights?.editedBy || []).length,
+      message: 'Access granted successfully',
+      user: {
+        userId: targetUser.id,
+        email: targetUser.email,
+        name: targetUser.name,
+        permissions,
       },
     });
   } catch (error) {
+    logger.error('Add allowed user error:', error);
+    return res.status(500).json({ message: 'Failed to add allowed user' });
+  }
+};
+
+exports.updateAllowedUserPermissions = async (req, res) => {
+  try {
+    const { id, userId } = req.params;
+    const file = await getOwnedFile(id, req.user.id);
+    if (!file) return res.status(404).json({ message: 'File not found' });
+
+    const permissions = normalizePermissions(req.body.permissions);
+    const { data, error } = await supabase
+      .from('file_permissions')
+      .update({ permissions, permission_type: 'allow' })
+      .eq('file_id', id)
+      .eq('user_id', userId)
+      .eq('permission_type', 'allow')
+      .select('user_id')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ message: 'Allowed user record not found' });
+
+    await logActivity({
+      fileId: id,
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'share_permissions_updated',
+      details: `${userId} -> ${permissions.join(',')}`,
+      ipAddress: getClientIp(req),
+    });
+
+    return res.json({ message: 'Permissions updated', permissions });
+  } catch (error) {
+    logger.error('Update allowed user permissions error:', error);
+    return res.status(500).json({ message: 'Failed to update permissions' });
+  }
+};
+
+exports.removeAllowedUser = async (req, res) => {
+  try {
+    const { id, userId } = req.params;
+    const file = await getOwnedFile(id, req.user.id);
+    if (!file) return res.status(404).json({ message: 'File not found' });
+
+    const { error } = await supabase
+      .from('file_permissions')
+      .delete()
+      .eq('file_id', id)
+      .eq('user_id', userId)
+      .eq('permission_type', 'allow');
+
+    if (error) throw error;
+
+    await logActivity({
+      fileId: id,
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'share_removed',
+      details: userId,
+      ipAddress: getClientIp(req),
+    });
+
+    return res.json({ message: 'Access removed successfully' });
+  } catch (error) {
+    logger.error('Remove allowed user error:', error);
+    return res.status(500).json({ message: 'Failed to remove allowed user' });
+  }
+};
+
+exports.getFileActivity = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const file = await getOwnedFile(id, req.user.id);
+    if (!file) return res.status(404).json({ message: 'File not found' });
+
+    const { data: permissionRows, error: permissionsError } = await supabase
+      .from('file_permissions')
+      .select('user_id, permission_type, permissions')
+      .eq('file_id', id);
+
+    if (permissionsError) throw permissionsError;
+
+    const { data: activityRows, error: activityError } = await supabase
+      .from('file_activity')
+      .select('actor_user_id, actor_email, action, details, created_at')
+      .eq('file_id', id)
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (activityError) throw activityError;
+
+    const userIds = new Set();
+    (permissionRows || []).forEach((r) => {
+      if (r.user_id) userIds.add(r.user_id);
+    });
+    (activityRows || []).forEach((r) => {
+      if (r.actor_user_id) userIds.add(r.actor_user_id);
+    });
+
+    const usersMap = await getUsersMapByIds([...userIds]);
+
+    const sharedWith = (permissionRows || [])
+      .filter((r) => r.permission_type === 'allow')
+      .map((r) => {
+        const user = usersMap.get(r.user_id) || {};
+        return {
+          userId: r.user_id,
+          email: user.email || null,
+          name: user.name || null,
+          permissions: normalizePermissions(r.permissions),
+        };
+      });
+
+    const viewedByMap = new Map();
+    const editedByMap = new Map();
+
+    (activityRows || []).forEach((row) => {
+      const action = String(row.action || '').toLowerCase();
+      const user = row.actor_user_id ? usersMap.get(row.actor_user_id) : null;
+      const email = row.actor_email || user?.email || 'anonymous';
+      const name = user?.name || null;
+      const key = row.actor_user_id || email;
+
+      if (['view', 'preview', 'download'].includes(action)) {
+        const prev = viewedByMap.get(key) || { userId: row.actor_user_id || null, email, name, count: 0 };
+        prev.count += 1;
+        viewedByMap.set(key, prev);
+      }
+
+      if (action.includes('edit')) {
+        const prev = editedByMap.get(key) || { userId: row.actor_user_id || null, email, name, count: 0 };
+        prev.count += 1;
+        editedByMap.set(key, prev);
+      }
+    });
+
+    const activityLogs = (activityRows || []).map((row) => {
+      const user = row.actor_user_id ? usersMap.get(row.actor_user_id) : null;
+      return {
+        at: row.created_at,
+        action: row.action,
+        details: row.details,
+        userId: row.actor_user_id,
+        email: row.actor_email || user?.email || null,
+        name: user?.name || null,
+      };
+    });
+
+    return res.json({
+      summary: {
+        sharedWithCount: sharedWith.length,
+        viewedByCount: viewedByMap.size,
+        editedByCount: editedByMap.size,
+      },
+      sharedWith,
+      viewedBy: [...viewedByMap.values()],
+      editedBy: [...editedByMap.values()],
+      activityLogs,
+    });
+  } catch (error) {
     logger.error('Get file activity error:', error);
-    return res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Failed to load file activity' });
   }
 };
