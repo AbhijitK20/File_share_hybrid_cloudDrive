@@ -78,7 +78,9 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Internal server error' });
 });
 
-if (!process.env.VERCEL) {
+module.exports = app;
+
+if (!process.env.VERCEL && require.main === module) {
   cron.schedule('*/10 * * * *', async () => {
   try {
     logger.info('[CRON] Running expired file cleanup...');
@@ -155,6 +157,4 @@ if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     logger.info(`🚀 Server running on http://localhost:${PORT}`);
   });
-} else {
-  module.exports = app;
 }
