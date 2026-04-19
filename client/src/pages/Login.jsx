@@ -3,14 +3,16 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { HiMail, HiLockClosed, HiArrowRight } from 'react-icons/hi';
 import { useAuth } from '../context/AuthContext';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const googleClientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,6 +24,20 @@ export default function Login() {
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async (googleIdToken) => {
+    setError('');
+    setLoading(true);
+
+    try {
+      await loginWithGoogle(googleIdToken);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Google sign-in failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -105,6 +121,23 @@ export default function Login() {
               )}
             </motion.button>
           </form>
+
+          <div className="my-5 flex items-center gap-3">
+            <div className="h-px flex-1 bg-white/10" />
+            <span className="text-white/30 text-xs uppercase tracking-wider">or</span>
+            <div className="h-px flex-1 bg-white/10" />
+          </div>
+
+          {googleClientId ? (
+            <GoogleSignInButton
+              clientId={googleClientId}
+              onToken={handleGoogleLogin}
+              onError={(message) => setError(message)}
+              buttonText="signin_with"
+            />
+          ) : (
+            <p className="text-white/30 text-xs text-center">Google sign-in is not configured yet.</p>
+          )}
 
           <div className="mt-4 text-right">
             <Link to="/forgot-password" className="text-brand-400 hover:text-brand-300 text-sm">

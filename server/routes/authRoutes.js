@@ -9,6 +9,7 @@ const {
   resendEmailVerificationCode,
   forgotPassword,
   resetPassword,
+  googleSignIn,
 } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -16,6 +17,7 @@ const router = express.Router();
 
 router.post('/register', register);
 router.post('/login', login);
+router.post('/google', googleSignIn);
 router.post('/email-exists', checkEmailExists);
 router.post('/verify-email', verifyEmailCode);
 router.post('/resend-verification', resendEmailVerificationCode);

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { HiUser, HiMail, HiLockClosed, HiArrowRight } from 'react-icons/hi';
 import { useAuth } from '../context/AuthContext';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -11,8 +12,9 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const googleClientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,6 +31,20 @@ export default function Register() {
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleRegister = async (googleIdToken) => {
+    setError('');
+    setLoading(true);
+
+    try {
+      await loginWithGoogle(googleIdToken);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Google sign-in failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -146,6 +162,23 @@ export default function Register() {
               )}
             </motion.button>
           </form>
+
+          <div className="my-5 flex items-center gap-3">
+            <div className="h-px flex-1 bg-white/10" />
+            <span className="text-white/30 text-xs uppercase tracking-wider">or</span>
+            <div className="h-px flex-1 bg-white/10" />
+          </div>
+
+          {googleClientId ? (
+            <GoogleSignInButton
+              clientId={googleClientId}
+              onToken={handleGoogleRegister}
+              onError={(message) => setError(message)}
+              buttonText="signup_with"
+            />
+          ) : (
+            <p className="text-white/30 text-xs text-center">Google sign-in is not configured yet.</p>
+          )}
 
           {/* Login link */}
           <div className="mt-6 text-center">

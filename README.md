@@ -8,6 +8,7 @@ The app lets users upload files, share them with a 6-digit access code (plus lin
 
 - File upload and sharing with access code, link, and QR code
 - Anonymous upload support and authenticated user flows
+- Google sign-in (one-tap style OAuth login/registration)
 - Access page with preview/download support
 - Dashboard for file management, visibility toggle, sharing by email, and activity tracking
 - Access control modes: public, allowlist, blocklist
@@ -69,6 +70,7 @@ CLIENT_URL=http://localhost:5173
 # Frontend
 VITE_API_URL=http://localhost:5000/api
 VITE_RAZORPAY_KEY_ID=
+VITE_GOOGLE_CLIENT_ID=
 
 # Payments
 RAZORPAY_KEY_ID=
@@ -82,6 +84,9 @@ SMTP_USER=
 SMTP_PASS=
 SMTP_SECURE=false
 SMTP_FROM=
+
+# Google sign-in
+GOOGLE_CLIENT_ID=
 
 # Optional logging/security
 LOG_LEVEL=debug
@@ -128,7 +133,7 @@ docker compose up -d --build
 ## API Overview
 
 - Auth routes: `/api/auth/*`
-  - register, login, email verification, forgot/reset password, profile, upgrade
+  - register, login, google sign-in, email verification, forgot/reset password, profile, upgrade
 - File routes: `/api/files/*`
   - upload, fetch by code, preview, download
 - Dashboard routes: `/api/dashboard/*` (protected)

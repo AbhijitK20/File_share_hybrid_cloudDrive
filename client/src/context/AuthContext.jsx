@@ -40,6 +40,16 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
+  const loginWithGoogle = async (idToken) => {
+    const res = await api.post('/auth/google', { idToken });
+    const { token: newToken, user: userData } = res.data;
+    localStorage.setItem('token', newToken);
+    api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+    setToken(newToken);
+    setUser(userData);
+    return res.data;
+  };
+
   const register = async (name, email, password) => {
     const res = await api.post('/auth/register', { name, email, password });
     const { token: newToken, user: userData } = res.data;
@@ -65,7 +75,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, upgradePlan }}>
+    <AuthContext.Provider value={{ user, token, loading, login, loginWithGoogle, register, logout, upgradePlan }}>
       {children}
     </AuthContext.Provider>
   );

@@ -2,6 +2,7 @@ const supabase = require('../utils/supabase');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
+const { OAuth2Client } = require('google-auth-library');
 const encryptionUtils = require('../utils/encryption');
 const { logger } = require('../utils/logger');
 const { sendEmail, otpTemplate } = require('../utils/mailer');
@@ -9,6 +10,7 @@ const { sendEmail, otpTemplate } = require('../utils/mailer');
 const OTP_TTL_MINUTES = 10;
 const RESEND_COOLDOWN_SECONDS = 60;
 const MAX_OTP_ATTEMPTS = 5;
+const googleClient = new OAuth2Client();
 
 const generateToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -18,6 +20,11 @@ const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
 const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
 const hashOtp = (code) =>
   crypto.createHash('sha256').update(`${code}:${process.env.JWT_SECRET}`).digest('hex');
+const getGoogleClientIds = () =>
+  String(process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
 
 const isWithinCooldown = (lastSentAt) => {
   if (!lastSentAt) return false;
@@ -146,6 +153,102 @@ exports.login = async (req, res) => {
   } catch (error) {
     logger.error('Login error:', error);
     res.status(500).json({ message: 'Server error during login' });
+  }
+};
+
+exports.googleSignIn = async (req, res) => {
+  try {
+    const idToken = String(req.body.idToken || '').trim();
+    if (!idToken) {
+      return res.status(400).json({ message: 'Google token is required' });
+    }
+
+    const googleClientIds = getGoogleClientIds();
+    if (googleClientIds.length === 0) {
+      logger.error('[AUTH] Google sign-in is not configured (missing GOOGLE_CLIENT_ID)');
+      return res.status(500).json({ message: 'Google sign-in is not configured' });
+    }
+
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken,
+        audience: googleClientIds,
+      });
+      payload = ticket.getPayload();
+    } catch (verifyError) {
+      return res.status(401).json({ message: 'Invalid Google token' });
+    }
+
+    const normalizedEmail = normalizeEmail(payload?.email);
+    if (!normalizedEmail || payload?.email_verified !== true) {
+      return res.status(401).json({ message: 'Google account email is not verified' });
+    }
+
+    const { data: existingUser, error: existingError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
+
+    if (existingError) throw existingError;
+
+    let user = existingUser;
+
+    if (!user) {
+      const generatedPassword = crypto.randomBytes(32).toString('hex');
+      const salt = await bcrypt.genSalt(12);
+      const hashedPassword = await bcrypt.hash(generatedPassword, salt);
+      const { key: masterKey, salt: masterKeySalt } = encryptionUtils.generateMasterKey(generatedPassword);
+      const encryptedMasterKey = encryptionUtils.encryptMasterKeyForStorage(masterKey);
+
+      const fallbackName = normalizedEmail.split('@')[0] || 'Google User';
+      const displayName = String(payload?.name || '').trim() || fallbackName;
+
+      const { data: createdUser, error: createError } = await supabase
+        .from('users')
+        .insert([{
+          name: displayName,
+          email: normalizedEmail,
+          password: hashedPassword,
+          master_key: encryptedMasterKey,
+          master_key_salt: masterKeySalt,
+          encryption_enabled: true,
+          is_email_verified: true,
+          email_verification: null,
+        }])
+        .select()
+        .single();
+
+      if (createError) {
+        const isDuplicateEmail =
+          String(createError.code || '').includes('23505')
+          || String(createError.message || '').toLowerCase().includes('duplicate');
+
+        if (!isDuplicateEmail) throw createError;
+
+        const { data: racedUser, error: raceLookupError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', normalizedEmail)
+          .maybeSingle();
+
+        if (raceLookupError || !racedUser) throw createError;
+        user = racedUser;
+      } else {
+        user = createdUser;
+      }
+    }
+
+    const token = generateToken(user.id);
+    return res.json({
+      message: 'Google sign-in successful',
+      token,
+      user: toPublicUser(user),
+    });
+  } catch (error) {
+    logger.error('Google sign-in error:', error);
+    return res.status(500).json({ message: 'Server error during Google sign-in' });
   }
 };
 
