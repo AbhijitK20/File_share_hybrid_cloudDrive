@@ -10,6 +10,7 @@ const {
   forgotPassword,
   resetPassword,
   googleSignIn,
+  getGoogleConfig,
 } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -18,6 +19,7 @@ const router = express.Router();
 router.post('/register', register);
 router.post('/login', login);
 router.post('/google', googleSignIn);
+router.get('/google/config', getGoogleConfig);
 router.post('/email-exists', checkEmailExists);
 router.post('/verify-email', verifyEmailCode);
 router.post('/resend-verification', resendEmailVerificationCode);

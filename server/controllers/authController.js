@@ -26,6 +26,18 @@ const getGoogleClientIds = () =>
     .map((id) => id.trim())
     .filter(Boolean);
 
+exports.getGoogleConfig = async (req, res) => {
+  const googleClientIds = getGoogleClientIds();
+  if (googleClientIds.length === 0) {
+    return res.json({ enabled: false });
+  }
+
+  return res.json({
+    enabled: true,
+    clientId: googleClientIds[0],
+  });
+};
+
 const isWithinCooldown = (lastSentAt) => {
   if (!lastSentAt) return false;
   return Date.now() - new Date(lastSentAt).getTime() < RESEND_COOLDOWN_SECONDS * 1000;

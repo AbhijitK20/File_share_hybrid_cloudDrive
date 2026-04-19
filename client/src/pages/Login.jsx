@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { HiMail, HiLockClosed, HiArrowRight } from 'react-icons/hi';
 import { useAuth } from '../context/AuthContext';
 import GoogleSignInButton from '../components/GoogleSignInButton';
+import api from '../services/api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -12,7 +13,29 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
-  const googleClientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
+  const [googleClientId, setGoogleClientId] = useState(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
+
+  useEffect(() => {
+    if (googleClientId) return;
+
+    let mounted = true;
+    api
+      .get('/auth/google/config')
+      .then((res) => {
+        if (!mounted) return;
+        const dynamicClientId = String(res.data?.clientId || '').trim();
+        if (res.data?.enabled && dynamicClientId) {
+          setGoogleClientId(dynamicClientId);
+        }
+      })
+      .catch(() => {
+        // Ignore config fetch failures and keep password login available.
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [googleClientId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -122,21 +145,21 @@ export default function Login() {
             </motion.button>
           </form>
 
-          <div className="my-5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-white/10" />
-            <span className="text-white/30 text-xs uppercase tracking-wider">or</span>
-            <div className="h-px flex-1 bg-white/10" />
-          </div>
+          {googleClientId && (
+            <>
+              <div className="my-5 flex items-center gap-3">
+                <div className="h-px flex-1 bg-white/10" />
+                <span className="text-white/30 text-xs uppercase tracking-wider">or</span>
+                <div className="h-px flex-1 bg-white/10" />
+              </div>
 
-          {googleClientId ? (
-            <GoogleSignInButton
-              clientId={googleClientId}
-              onToken={handleGoogleLogin}
-              onError={(message) => setError(message)}
-              buttonText="signin_with"
-            />
-          ) : (
-            <p className="text-white/30 text-xs text-center">Google sign-in is not configured yet.</p>
+              <GoogleSignInButton
+                clientId={googleClientId}
+                onToken={handleGoogleLogin}
+                onError={(message) => setError(message)}
+                buttonText="signin_with"
+              />
+            </>
           )}
 
           <div className="mt-4 text-right">
