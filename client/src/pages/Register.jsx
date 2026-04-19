@@ -15,11 +15,10 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const { register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
-  const [googleClientId, setGoogleClientId] = useState(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
+  const fallbackGoogleClientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
+  const [googleClientId, setGoogleClientId] = useState('');
 
   useEffect(() => {
-    if (googleClientId) return;
-
     let mounted = true;
     api
       .get('/auth/google/config')
@@ -28,16 +27,21 @@ export default function Register() {
         const dynamicClientId = String(res.data?.clientId || '').trim();
         if (res.data?.enabled && dynamicClientId) {
           setGoogleClientId(dynamicClientId);
+          return;
         }
+
+        setGoogleClientId(fallbackGoogleClientId);
       })
       .catch(() => {
-        // Ignore config fetch failures and keep password registration available.
+        if (mounted) {
+          setGoogleClientId(fallbackGoogleClientId);
+        }
       });
 
     return () => {
       mounted = false;
     };
-  }, [googleClientId]);
+  }, [fallbackGoogleClientId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
