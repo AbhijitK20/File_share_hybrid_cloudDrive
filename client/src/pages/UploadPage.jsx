@@ -97,7 +97,7 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-6">
+    <div className="min-h-screen pt-20 sm:pt-24 pb-10 sm:pb-12 px-4 sm:px-6">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <motion.div
@@ -105,10 +105,10 @@ export default function UploadPage() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-10"
         >
-          <h1 className="text-4xl md:text-5xl font-bold gradient-text mb-3">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold gradient-text mb-3">
             Share Files Instantly
           </h1>
-          <p className="text-white/50 text-lg mb-4">
+          <p className="text-white/50 text-base sm:text-lg mb-4">
             No account needed. Drop your files, get a code, share anywhere.
           </p>
           {isVercelFunctionUpload && (
@@ -131,7 +131,7 @@ export default function UploadPage() {
         >
           <div
             {...getRootProps()}
-            className={`relative glass p-12 text-center cursor-pointer transition-all duration-500 group
+            className={`relative glass p-6 sm:p-12 text-center cursor-pointer transition-all duration-500 group
               ${isDragActive
                 ? 'border-brand-400 bg-brand-500/10 shadow-glow-lg scale-[1.02]'
                 : 'hover:border-white/20 hover:bg-white/[0.03]'
@@ -141,27 +141,27 @@ export default function UploadPage() {
 
             {/* Background decoration */}
             <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-              <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full transition-all duration-700 ${isDragActive ? 'bg-brand-500/20 scale-150' : 'bg-brand-500/5 scale-100'}`} />
+              <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 sm:w-64 sm:h-64 rounded-full transition-all duration-700 ${isDragActive ? 'bg-brand-500/20 scale-150' : 'bg-brand-500/5 scale-100'}`} />
             </div>
 
             <div className="relative z-10">
               <motion.div
                 animate={{ y: isDragActive ? -10 : 0 }}
                 transition={{ duration: 0.3 }}
-                className="mx-auto w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-500/20 to-purple-500/20 flex items-center justify-center mb-6"
+                className="mx-auto w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-brand-500/20 to-purple-500/20 flex items-center justify-center mb-5 sm:mb-6"
               >
                 {isDragActive ? (
-                  <HiDocumentAdd className="text-4xl text-brand-400" />
+                  <HiDocumentAdd className="text-3xl sm:text-4xl text-brand-400" />
                 ) : (
-                  <HiCloudUpload className="text-4xl text-brand-400 group-hover:text-brand-300 transition-colors" />
+                  <HiCloudUpload className="text-3xl sm:text-4xl text-brand-400 group-hover:text-brand-300 transition-colors" />
                 )}
               </motion.div>
 
               {isDragActive ? (
-                <p className="text-xl text-brand-300 font-medium">Drop your files here...</p>
+                <p className="text-lg sm:text-xl text-brand-300 font-medium">Drop your files here...</p>
               ) : (
                 <>
-                  <p className="text-xl text-white/80 font-medium mb-2">
+                  <p className="text-lg sm:text-xl text-white/80 font-medium mb-2">
                     Drag & drop files here
                   </p>
                   <p className="text-white/40 text-sm mb-1">or click to browse</p>
@@ -286,10 +286,10 @@ export default function UploadPage() {
                 </div>
 
                 {/* Access Code */}
-                <div className="bg-white/5 rounded-xl p-5 mb-5">
+                <div className="bg-white/5 rounded-xl p-4 sm:p-5 mb-5">
                   <p className="text-white/40 text-xs font-medium uppercase tracking-wider mb-3">Access Code</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-4xl font-bold tracking-[0.3em] gradient-text">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <span className="text-2xl sm:text-4xl font-bold tracking-[0.2em] sm:tracking-[0.3em] gradient-text break-all">
                       {result.groupCode}
                     </span>
                     <button
@@ -303,16 +303,16 @@ export default function UploadPage() {
                 </div>
 
                 {/* Shareable Link */}
-                <div className="bg-white/5 rounded-xl p-5 mb-5">
+                <div className="bg-white/5 rounded-xl p-4 sm:p-5 mb-5">
                   <p className="text-white/40 text-xs font-medium uppercase tracking-wider mb-3">Shareable Link</p>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                     <div className="flex items-center gap-2 flex-1 min-w-0 bg-white/5 px-4 py-2.5 rounded-lg">
                       <HiLink className="text-brand-400 flex-shrink-0" />
                       <span className="text-white/60 text-sm truncate">{result.accessUrl}</span>
                     </div>
                     <button
                       onClick={() => copyToClipboard(result.accessUrl, 'link')}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/10 hover:bg-white/15 text-white/70 hover:text-white transition-all text-sm flex-shrink-0"
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-white/10 hover:bg-white/15 text-white/70 hover:text-white transition-all text-sm flex-shrink-0"
                     >
                       {linkCopied ? <HiCheck className="text-green-400" /> : <HiClipboardCopy />}
                       {linkCopied ? 'Copied!' : 'Copy'}
@@ -321,16 +321,16 @@ export default function UploadPage() {
                 </div>
 
                 {/* QR Code */}
-                <div className="bg-white/5 rounded-xl p-5 text-center">
+                <div className="bg-white/5 rounded-xl p-4 sm:p-5 text-center">
                   <p className="text-white/40 text-xs font-medium uppercase tracking-wider mb-4">QR Code</p>
-                  <div className="inline-block p-4 bg-white rounded-xl">
-                    <QRCodeSVG value={result.accessUrl} size={180} />
+                  <div className="inline-block p-3 sm:p-4 bg-white rounded-xl">
+                    <QRCodeSVG value={result.accessUrl} size={160} />
                   </div>
                   <p className="text-white/30 text-xs mt-3">Scan with any camera app</p>
                 </div>
 
                 {/* File count + expiry */}
-                <div className="flex items-center justify-between mt-5 pt-5 border-t border-white/5">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mt-5 pt-5 border-t border-white/5">
                   <p className="text-white/40 text-sm">
                     {result.files.length} file{result.files.length !== 1 ? 's' : ''} uploaded
                   </p>

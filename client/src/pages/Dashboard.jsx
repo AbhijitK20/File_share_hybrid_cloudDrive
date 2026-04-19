@@ -146,31 +146,31 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-6">
+    <div className="min-h-screen pt-20 sm:pt-24 pb-10 sm:pb-12 px-4 sm:px-6">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-8"
+          className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8"
         >
           <div>
-            <h1 className="text-3xl font-bold text-white mb-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">
               Welcome, <span className="gradient-text">{user?.name}</span>
             </h1>
             <p className="text-white/40">Manage your uploaded files</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 w-full md:w-auto">
             <button
               onClick={fetchData}
-              className="btn-secondary flex items-center gap-2 py-2 px-4 text-sm"
+              className="btn-secondary flex-1 md:flex-none justify-center flex items-center gap-2 py-2 px-4 text-sm"
             >
               <HiRefresh className={loading ? 'animate-spin' : ''} />
               Refresh
             </button>
             <button
               onClick={() => navigate('/')}
-              className="btn-primary flex items-center gap-2 py-2 px-4 text-sm"
+              className="btn-primary flex-1 md:flex-none justify-center flex items-center gap-2 py-2 px-4 text-sm"
             >
               <HiCloudUpload />
               Upload Files
@@ -184,7 +184,7 @@ export default function Dashboard() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"
+            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8"
           >
             {statCards.map((stat, i) => (
               <div
@@ -233,17 +233,17 @@ export default function Dashboard() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: i * 0.05 }}
-                    className="p-4 px-5 flex items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors"
+                    className="p-4 px-4 sm:px-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 hover:bg-white/[0.02] transition-colors"
                   >
-                    <div className="flex items-center gap-4 min-w-0 flex-1">
+                    <div className="flex items-center gap-4 min-w-0 w-full lg:flex-1">
                       <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
                         <HiDocumentText className="text-brand-400" />
                       </div>
                       <div className="min-w-0">
                         <p className="text-white font-medium truncate text-sm">{file.name}</p>
-                        <div className="flex items-center gap-3 mt-0.5">
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
                           <span className="text-white/30 text-xs">{formatSize(file.size)}</span>
-                          <span className="text-white/30 text-xs text-center w-[80px]">Code: {file.groupCode}</span>
+                          <span className="text-white/30 text-xs">Code: {file.groupCode}</span>
                           <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
                             isExpired(file.expiresAt)
                               ? 'bg-red-500/10 text-red-400'
@@ -254,7 +254,7 @@ export default function Dashboard() {
                           <button
                             onClick={() => handleToggleVisibility(file.id, file.visibility || 'public')}
                             disabled={toggling === file.id}
-                            className={`flex items-center justify-center gap-1 text-xs px-2 py-0.5 rounded-full transition-colors disabled:opacity-50 w-[80px] ${
+                            className={`flex items-center justify-center gap-1 text-xs px-2 py-0.5 rounded-full transition-colors disabled:opacity-50 ${
                               (file.visibility || 'public') === 'private'
                                 ? 'bg-purple-500/10 text-purple-400 hover:bg-purple-500/20'
                                 : 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20'
@@ -273,7 +273,7 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-end flex-shrink-0">
                       <button
                         onClick={() => setSharingFileId(sharingFileId === file.id ? null : file.id)}
                         className="p-2 rounded-lg hover:bg-white/5 text-white/40 hover:text-brand-400 transition-all"

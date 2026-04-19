@@ -70,7 +70,7 @@ export default function AccessPage() {
   };
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-6">
+    <div className="min-h-screen pt-20 sm:pt-24 pb-10 sm:pb-12 px-4 sm:px-6">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <motion.div
@@ -78,10 +78,10 @@ export default function AccessPage() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-10"
         >
-          <h1 className="text-4xl md:text-5xl font-bold gradient-text mb-3">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold gradient-text mb-3">
             Access Files
           </h1>
-          <p className="text-white/50 text-lg">
+          <p className="text-white/50 text-base sm:text-lg">
             Enter a 6-digit code to access shared files
           </p>
         </motion.div>
@@ -92,9 +92,9 @@ export default function AccessPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
           onSubmit={handleSubmit}
-          className="glass p-6 mb-8"
+          className="glass p-4 sm:p-6 mb-8"
         >
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <HiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 text-xl" />
               <input
@@ -114,7 +114,7 @@ export default function AccessPage() {
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={code.length !== 6 || loading}
-              className="btn-primary flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="btn-primary w-full sm:w-auto justify-center flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

@@ -30,7 +30,7 @@ function ProtectedRoute({ children }) {
 
 function AppRoutes() {
   return (
-    <div className="min-h-screen bg-surface-950 relative overflow-hidden">
+    <div className="min-h-screen bg-surface-950 relative overflow-x-hidden">
       {/* Background decorations */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-brand-500/[0.03] blur-3xl" />
