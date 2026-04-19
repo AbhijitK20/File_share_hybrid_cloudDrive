@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
+const envApiUrl = String(import.meta.env.VITE_API_URL || '').trim();
+const isLocalhostApi = /localhost|127\.0\.0\.1/i.test(envApiUrl);
+const API_BASE = import.meta.env.PROD
+  ? (envApiUrl && !isLocalhostApi ? envApiUrl : '/api')
+  : (envApiUrl || 'http://localhost:5000/api');
 
 const api = axios.create({
   baseURL: API_BASE,
