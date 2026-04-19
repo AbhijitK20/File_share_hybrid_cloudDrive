@@ -1,17 +1,12 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const path = require('path');
-const fs = require('fs');
 const cron = require('node-cron');
 const supabase = require('./utils/supabase');
 require('./utils/loadEnv');
 
 const REQUIRED_ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'JWT_SECRET'];
 const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k]);
-if (missingEnv.length > 0) {
-  throw new Error(`Missing required environment variables: ${missingEnv.join(', ')}`);
-}
 
 const fileRoutes = require('./routes/fileRoutes');
 const authRoutes = require('./routes/authRoutes');
@@ -22,10 +17,6 @@ const { requestSecurityGuard } = require('./middleware/securityGuard');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
-// Logs directory still useful for serverless logs if allowed, but cloud logging is better
-const logsDir = path.join(__dirname, 'logs');
-if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
 
 app.use(helmet({
   contentSecurityPolicy: {
@@ -55,13 +46,27 @@ app.use((req, res, next) => {
   next();
 });
 
+if (missingEnv.length > 0) {
+  logger.error(`Missing required environment variables: ${missingEnv.join(', ')}`);
+  app.use('/api', (req, res) => {
+    res.status(500).json({
+      message: 'Server configuration error',
+      missingEnv,
+    });
+  });
+}
+
 app.use('/api/files', fileRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/payment', paymentRoutes);
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.status(missingEnv.length > 0 ? 500 : 200).json({
+    status: missingEnv.length > 0 ? 'error' : 'ok',
+    timestamp: new Date().toISOString(),
+    ...(missingEnv.length > 0 ? { missingEnv } : {}),
+  });
 });
 
 app.get('/', (req, res) => {

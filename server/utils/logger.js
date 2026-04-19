@@ -1,11 +1,18 @@
 const winston = require('winston');
 const path = require('path');
-
-// Create logs directory if it doesn't exist
-const logsDir = path.join(__dirname, '../logs');
 const fs = require('fs');
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
+
+const isServerless = Boolean(process.env.VERCEL);
+
+const logsDir = path.join(__dirname, '../logs');
+if (!isServerless) {
+  try {
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
+  } catch (error) {
+    // Fallback to console-only logging if filesystem is unavailable.
+  }
 }
 
 // Define log levels and colors
@@ -36,25 +43,31 @@ const format = winston.format.combine(
   ),
 );
 
+const transports = [new winston.transports.Console()];
+
+if (!isServerless) {
+  try {
+    transports.push(
+      new winston.transports.File({
+        filename: path.join(logsDir, 'error.log'),
+        level: 'error',
+        format: winston.format.uncolorize(),
+      }),
+      new winston.transports.File({
+        filename: path.join(logsDir, 'all.log'),
+        format: winston.format.uncolorize(),
+      })
+    );
+  } catch (error) {
+    // Keep console transport only when file transport fails.
+  }
+}
+
 // Create logger
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'debug',
   format,
-  transports: [
-    // Console transport
-    new winston.transports.Console(),
-    // Error logs
-    new winston.transports.File({
-      filename: path.join(logsDir, 'error.log'),
-      level: 'error',
-      format: winston.format.uncolorize(),
-    }),
-    // Combined logs
-    new winston.transports.File({
-      filename: path.join(logsDir, 'all.log'),
-      format: winston.format.uncolorize(),
-    }),
-  ],
+  transports,
 });
 
 /**
