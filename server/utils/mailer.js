@@ -13,7 +13,6 @@ function isPlaceholderSecret(value = '') {
     'your-app-password',
     'changeme',
     'example',
-    'abcdefgh',
   ].some((token) => normalized.includes(token));
 }
 
@@ -50,9 +49,13 @@ function getTransporter() {
   return transporter;
 }
 
-async function sendEmail({ to, subject, text, html }) {
+async function sendEmail({ to, subject, text, html, requireSmtp = false }) {
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
   const tx = getTransporter();
+
+  if (requireSmtp && tx.__isFallback) {
+    throw new Error('SMTP is not configured with valid credentials');
+  }
 
   try {
     const info = await tx.sendMail({ from, to, subject, text, html });
@@ -65,6 +68,11 @@ async function sendEmail({ to, subject, text, html }) {
 
     return info;
   } catch (error) {
+    if (requireSmtp) {
+      logger.error(`[MAIL] SMTP send failed for ${to}: ${error.message}`);
+      throw error;
+    }
+
     // Do not break auth flows when SMTP credentials are invalid at runtime.
     logger.warn(`[MAIL] SMTP send failed (${error.message}). Switching to fallback local transport.`);
     transporter = createFallbackTransporter('runtime SMTP authentication failure');

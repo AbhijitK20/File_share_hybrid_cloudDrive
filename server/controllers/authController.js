@@ -296,9 +296,17 @@ exports.forgotPassword = async (req, res) => {
 
     try {
       const tpl = otpTemplate('Reset your FileShare password', code, OTP_TTL_MINUTES);
-      await sendEmail({ to: user.email, subject: 'FileShare password reset code', ...tpl });
+      await sendEmail({
+        to: user.email,
+        subject: 'FileShare password reset code',
+        ...tpl,
+        requireSmtp: true,
+      });
     } catch (mailErr) {
       logger.error(`[AUTH] forgot password email failed: ${mailErr.message}`);
+      return res.status(500).json({
+        message: 'Unable to send reset email right now. Check SMTP settings and try again.',
+      });
     }
 
     return res.json({ message: 'Code sent if email exists' });
