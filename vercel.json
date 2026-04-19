@@ -17,6 +17,10 @@
       "dest": "/server/server.js"
     },
     {
+      "src": "/",
+      "dest": "/client/index.html"
+    },
+    {
       "src": "/assets/(.*)",
       "dest": "/client/assets/$1"
     },
