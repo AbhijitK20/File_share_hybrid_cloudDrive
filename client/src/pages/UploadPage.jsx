@@ -111,6 +111,11 @@ export default function UploadPage() {
           <p className="text-white/50 text-base sm:text-lg mb-4">
             No account needed. Drop your files, get a code, share anywhere.
           </p>
+          {!user && (
+            <p className="text-amber-300/80 text-xs mb-3">
+              Guest uploads auto-delete in 1 hour to keep storage efficient.
+            </p>
+          )}
           {isVercelFunctionUpload && (
             <p className="text-amber-300/80 text-xs mb-3">
               Hosted mode limit: up to {formatSize(MAX_FILE_SIZE)} per file on this deployment.

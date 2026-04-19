@@ -135,7 +135,7 @@ export default function Pricing() {
           <div className="flex-1 space-y-4 mb-8">
             <FeatureItem text="Up to 100MB per file limits" />
             <FeatureItem text="Unlimited sharing links" />
-            <FeatureItem text="24-hour file expiration" />
+            <FeatureItem text="Guest uploads auto-delete in 1 hour" />
             <FeatureItem text="Dashboard analytics" />
           </div>
 

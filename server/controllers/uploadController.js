@@ -9,6 +9,8 @@ const compressionUtils = require('../utils/compression');
 
 const ALLOWED_VISIBILITY = ['public', 'private'];
 const ALLOWED_ACCESS_MODES = ['public', 'allowlist', 'blocklist'];
+const AUTHENTICATED_EXPIRY_HOURS = 24;
+const ANONYMOUS_EXPIRY_HOURS = 1;
 
 /**
  * Upload multiple files to Supabase Storage.
@@ -42,8 +44,9 @@ exports.uploadFiles = async (req, res) => {
     }
 
     const groupCode = await generateUniqueCode();
-    // All uploads expire in 24 hours by default. Premium users can extend later.
-    const expiryHours = 24;
+    // Guest uploads expire faster to keep storage/database lean.
+    // Signed-in uploads keep the default 24h window and Pro can extend later.
+    const expiryHours = user ? AUTHENTICATED_EXPIRY_HOURS : ANONYMOUS_EXPIRY_HOURS;
     const expiresAt = new Date(Date.now() + expiryHours * 60 * 60 * 1000).toISOString();
 
     let visibility = ALLOWED_VISIBILITY.includes(req.body.visibility) ? req.body.visibility : 'public';

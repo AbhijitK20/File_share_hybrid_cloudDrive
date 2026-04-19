@@ -107,7 +107,8 @@ app.use((err, req, res, next) => {
 module.exports = app;
 
 if (!process.env.VERCEL && require.main === module) {
-  cron.schedule('*/10 * * * *', async () => {
+  // Run every minute so short-lived uploads are purged quickly after expiry.
+  cron.schedule('* * * * *', async () => {
   try {
     logger.info('[CRON] Running expired file cleanup...');
     const now = new Date().toISOString();
