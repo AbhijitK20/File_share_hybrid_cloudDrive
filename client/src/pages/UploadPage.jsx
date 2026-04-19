@@ -17,18 +17,29 @@ export default function UploadPage() {
   const [codeCopied, setCodeCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
 
+  const isVercelFunctionUpload =
+    import.meta.env.PROD &&
+    (!import.meta.env.VITE_API_URL || import.meta.env.VITE_API_URL === '/api') &&
+    typeof window !== 'undefined' &&
+    window.location.hostname.endsWith('.vercel.app');
+
+  const isPremium = user?.plan === 'premium';
+  const planMaxFileSize = isPremium ? 5 * 1024 * 1024 * 1024 : 100 * 1024 * 1024;
+  // Vercel serverless functions reject request payloads over ~4.5MB.
+  const hostedMaxFileSize = 4 * 1024 * 1024;
+  const MAX_FILE_SIZE = isVercelFunctionUpload
+    ? Math.min(planMaxFileSize, hostedMaxFileSize)
+    : planMaxFileSize;
+
   const onDrop = useCallback((acceptedFiles, fileRejections) => {
     if (fileRejections.length > 0) {
-      setError(`Some files exceeded the ${isPremium ? '5GB' : '100MB'} limit.`);
+      setError(`Some files exceeded the ${formatSize(MAX_FILE_SIZE)} limit.`);
     } else {
       setFiles((prev) => [...prev, ...acceptedFiles]);
       setError(null);
     }
     setResult(null);
-  }, [user]);
-
-  const isPremium = user?.plan === 'premium';
-  const MAX_FILE_SIZE = isPremium ? 5 * 1024 * 1024 * 1024 : 100 * 1024 * 1024;
+  }, [MAX_FILE_SIZE]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -52,7 +63,15 @@ export default function UploadPage() {
       setResult(data);
       setFiles([]);
     } catch (err) {
-      setError(err.response?.data?.message || 'Upload failed. Please try again.');
+      const status = err.response?.status;
+      const textResponse = typeof err.response?.data === 'string' ? err.response.data : '';
+      const isPayloadTooLarge = status === 413 || textResponse.includes('FUNCTION_PAYLOAD_TOO_LARGE');
+
+      if (isPayloadTooLarge) {
+        setError(`This deployment currently allows up to ${formatSize(MAX_FILE_SIZE)} per file. Deploy backend outside Vercel Functions for larger uploads.`);
+      } else {
+        setError(err.response?.data?.message || 'Upload failed. Please try again.');
+      }
     } finally {
       setUploading(false);
     }
@@ -92,6 +111,11 @@ export default function UploadPage() {
           <p className="text-white/50 text-lg mb-4">
             No account needed. Drop your files, get a code, share anywhere.
           </p>
+          {isVercelFunctionUpload && (
+            <p className="text-amber-300/80 text-xs mb-3">
+              Hosted mode limit: up to {formatSize(MAX_FILE_SIZE)} per file on this deployment.
+            </p>
+          )}
           {!isPremium && (
             <Link to="/pricing" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-500/10 text-brand-400 hover:bg-brand-500/20 transition-colors text-xs font-medium border border-brand-500/20">
               <HiStar /> Upgrade to Pro for 5GB uploads
@@ -142,7 +166,7 @@ export default function UploadPage() {
                   </p>
                   <p className="text-white/40 text-sm mb-1">or click to browse</p>
                   <p className="text-brand-400/60 text-xs font-medium uppercase tracking-widest mt-4">
-                    Max size: {isPremium ? '5 GB' : '100 MB'} per file
+                    Max size: {formatSize(MAX_FILE_SIZE)} per file
                   </p>
                 </>
               )}
