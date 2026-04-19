@@ -68,3 +68,5 @@ run_script.bat
 run_synopsis.js
 test_docx.py
 wrapper.py
+.vercel
+.env*.local
