@@ -73,7 +73,8 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Internal server error' });
 });
 
-cron.schedule('*/10 * * * *', async () => {
+if (!process.env.VERCEL) {
+  cron.schedule('*/10 * * * *', async () => {
   try {
     logger.info('[CRON] Running expired file cleanup...');
     const now = new Date().toISOString();
@@ -144,8 +145,11 @@ cron.schedule('*/10 * * * *', async () => {
   } catch (error) {
     logger.error('[CRON] Cleanup error:', error);
   }
-});
+  });
 
-app.listen(PORT, () => {
-  logger.info(`🚀 Server running on http://localhost:${PORT}`);
-});
+  app.listen(PORT, () => {
+    logger.info(`🚀 Server running on http://localhost:${PORT}`);
+  });
+} else {
+  module.exports = app;
+}
