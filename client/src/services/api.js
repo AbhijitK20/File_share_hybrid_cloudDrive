@@ -81,11 +81,29 @@ export const getDownloadUrl = (fileId) => {
  * Fetch a file as a Blob (useful for protected routes via JWT).
  * @param {string} fileId - File ID
  * @param {string} type - 'download' or 'preview'
+ * @returns {Promise<Blob>}
+ */
+export const fetchFileBlob = async (fileId, type = 'download') => {
+  const response = await api.get(`/files/${type}/${fileId}`, { responseType: 'blob' });
+  const responseMime = String(response.headers?.['content-type'] || '').split(';')[0].trim();
+  const blob = response.data;
+
+  if (responseMime && blob.type !== responseMime) {
+    return new Blob([blob], { type: responseMime });
+  }
+
+  return blob;
+};
+
+/**
+ * Fetch a file and return an object URL.
+ * @param {string} fileId - File ID
+ * @param {string} type - 'download' or 'preview'
  * @returns {Promise<string>} - Object URL
  */
 export const fetchFileAsBlob = async (fileId, type = 'download') => {
-  const response = await api.get(`/files/${type}/${fileId}`, { responseType: 'blob' });
-  return URL.createObjectURL(response.data);
+  const blob = await fetchFileBlob(fileId, type);
+  return URL.createObjectURL(blob);
 };
 
 export const checkEmailExists = async (email) => {

@@ -3,7 +3,25 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiSearch, HiArrowRight, HiFolder, HiX } from 'react-icons/hi';
 import FileCard from '../components/FileCard';
-import { getFilesByCode, fetchFileAsBlob } from '../services/api';
+import { getFilesByCode, fetchFileBlob } from '../services/api';
+
+const MAX_TEXT_PREVIEW_BYTES = 1024 * 1024;
+
+function getEffectiveMimeType(file, blob) {
+  const blobType = String(blob?.type || '').trim();
+  const fileType = String(file?.mimetype || '').trim();
+  return blobType || fileType || 'application/octet-stream';
+}
+
+function isTextLike(mimeType) {
+  const value = String(mimeType || '').toLowerCase();
+  return value.startsWith('text/')
+    || value.includes('json')
+    || value.includes('xml')
+    || value.includes('javascript')
+    || value.includes('yaml')
+    || value.includes('csv');
+}
 
 export default function AccessPage() {
   const { code: urlCode } = useParams();
@@ -17,6 +35,9 @@ export default function AccessPage() {
 
   const [previewFile, setPreviewFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewMimeType, setPreviewMimeType] = useState('');
+  const [previewText, setPreviewText] = useState(null);
+  const [previewUnsupported, setPreviewUnsupported] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
@@ -53,15 +74,50 @@ export default function AccessPage() {
     setPreviewFile(null);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
+    setPreviewMimeType('');
+    setPreviewText(null);
+    setPreviewUnsupported(false);
   };
 
   const handlePreview = async (file) => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
     setPreviewFile(file);
+    setPreviewUrl(null);
+    setPreviewMimeType('');
+    setPreviewText(null);
+    setPreviewUnsupported(false);
     setPreviewLoading(true);
+
     try {
-      const url = await fetchFileAsBlob(file.id, 'preview');
+      const blob = await fetchFileBlob(file.id, 'preview');
+      const mimeType = getEffectiveMimeType(file, blob);
+      const url = URL.createObjectURL(blob);
+
+      if (isTextLike(mimeType)) {
+        const sliced = blob.size > MAX_TEXT_PREVIEW_BYTES ? blob.slice(0, MAX_TEXT_PREVIEW_BYTES) : blob;
+        const text = await sliced.text();
+        setPreviewText(blob.size > MAX_TEXT_PREVIEW_BYTES
+          ? `${text}\n\n--- Preview truncated at 1 MB ---`
+          : text);
+      }
+
+      const supportedByViewer = mimeType.startsWith('image/')
+        || mimeType.startsWith('video/')
+        || mimeType.startsWith('audio/')
+        || mimeType.includes('pdf')
+        || isTextLike(mimeType)
+        || mimeType.includes('officedocument')
+        || mimeType.includes('msword')
+        || mimeType.includes('ms-excel')
+        || mimeType.includes('ms-powerpoint');
+
+      setPreviewUnsupported(!supportedByViewer);
+      setPreviewMimeType(mimeType);
       setPreviewUrl(url);
-    } catch (err) {
+    } catch {
       alert("Failed to load preview. It may be a private file.");
       closePreview();
     } finally {
@@ -228,21 +284,49 @@ export default function AccessPage() {
                     <p className="text-white/50">Loading preview...</p>
                   </div>
                 ) : previewUrl ? (
-                  previewFile.mimetype.startsWith('image/') ? (
+                  previewMimeType.startsWith('image/') ? (
                     <img
                       src={previewUrl}
                       alt={previewFile.name}
                       className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
                     />
-                  ) : previewFile.mimetype.includes('pdf') ? (
+                  ) : previewMimeType.startsWith('video/') ? (
+                    <video
+                      src={previewUrl}
+                      controls
+                      className="max-w-full max-h-full rounded-lg shadow-2xl bg-black"
+                    />
+                  ) : previewMimeType.startsWith('audio/') ? (
+                    <audio
+                      src={previewUrl}
+                      controls
+                      className="w-full max-w-2xl"
+                    />
+                  ) : previewMimeType.includes('pdf') ? (
                     <iframe
                       src={previewUrl}
                       className="w-full h-full rounded-b-xl bg-white"
                       title="PDF Preview"
                     />
+                  ) : previewText !== null ? (
+                    <pre className="w-full h-full overflow-auto rounded-xl bg-black/60 p-4 text-xs sm:text-sm text-white/80 whitespace-pre-wrap break-words">
+                      {previewText}
+                    </pre>
+                  ) : !previewUnsupported ? (
+                    <iframe
+                      src={previewUrl}
+                      className="w-full h-full rounded-b-xl bg-white"
+                      title="File Preview"
+                    />
                   ) : null
                 ) : (
                   <p className="text-red-400">Failed to load preview</p>
+                )}
+
+                {!previewLoading && previewUnsupported && (
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-amber-500/15 border border-amber-500/30 rounded-lg px-3 py-2 text-xs text-amber-200">
+                    Preview is limited for this file type. Use Download for full fidelity.
+                  </div>
                 )}
               </div>
             </motion.div>

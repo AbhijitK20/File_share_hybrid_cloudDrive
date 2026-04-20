@@ -59,7 +59,6 @@ exports.uploadFiles = async (req, res) => {
     }
 
     const enableEncryption = req.body.enableEncryption !== 'false' && user?.encryption_enabled !== false;
-    const enableCompression = req.body.enableCompression !== 'false';
 
     let masterKey = null;
     let fileKeyData = null;
@@ -77,21 +76,29 @@ exports.uploadFiles = async (req, res) => {
 
     for (const file of req.files) {
       try {
-        let fileData = file.buffer; // Multer memoryStorage provides file.buffer
-        let compressedSize = file.size;
+        const originalFileData = file.buffer; // Multer memoryStorage provides file.buffer
+        let fileData = originalFileData;
+        let compressedSize = originalFileData.length;
         let isCompressed = false;
         let encryptionMetadata = { enabled: false };
 
-        if (enableCompression) {
-          try {
-            const compressed = await compressionUtils.compressGZIP(fileData);
+        try {
+          const compressed = await compressionUtils.compressGZIP(originalFileData);
+          const decompressed = await compressionUtils.decompressGZIP(compressed);
+          if (!decompressed.equals(originalFileData)) {
+            throw new Error('Compression integrity check failed');
+          }
+
+          // Keep storage efficient: only persist compressed data when it saves space.
+          if (compressed.length < originalFileData.length) {
             fileData = compressed;
             compressedSize = compressed.length;
             isCompressed = true;
-          } catch (e) {
-            logger.warn(`Compression failed for ${file.originalname}`);
           }
+        } catch (compressionError) {
+          logger.warn(`Compression pipeline failed for ${file.originalname}: ${compressionError.message}`);
         }
+
         totalCompressedSize += compressedSize;
 
         if (enableEncryption && fileKeyData) {
@@ -143,6 +150,10 @@ exports.uploadFiles = async (req, res) => {
       } catch (error) {
         logger.error(`Error processing ${file.originalname}:`, error);
       }
+    }
+
+    if (savedFiles.length === 0) {
+      return res.status(500).json({ message: 'Unable to upload files. Please try again.' });
     }
 
     if (user) {

@@ -20,8 +20,7 @@ const formatSize = (bytes) => {
 
 export default function FileCard({ file, index = 0, onPreview }) {
   const [downloading, setDownloading] = useState(false);
-
-  const isPreviewable = file.mimetype?.startsWith('image/') || file.mimetype?.includes('pdf');
+  const isPreviewable = true;
 
   const handleDownload = async () => {
     try {
