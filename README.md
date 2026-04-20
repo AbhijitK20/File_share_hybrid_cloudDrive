@@ -95,6 +95,11 @@ LOG_LEVEL=debug
 ENABLE_MALWARE_SCAN=false
 MALWARE_SCANNER_PATH=clamscan
 MALWARE_SCAN_TIMEOUT_MS=20000
+TRUST_PROXY=true
+ALLOW_VERCEL_PREVIEWS=false
+MULTER_MAX_FILE_SIZE_BYTES=104857600
+MAX_FILES_PER_UPLOAD=20
+PRIVACY_MINIMIZE_LOGS=true
 ```
 
 ## Vercel Deployment Checklist (Google Sign-In)
@@ -191,6 +196,34 @@ Supabase Storage bucket used by uploads: `uploads`.
   - If SMTP is not configured, the app falls back gracefully instead of blocking auth flows
 - Cannot access private file:
   - Owner must share via allowlist for non-owner access
+
+## Security Baseline
+
+### Runtime protections
+
+- Auth endpoints are now rate-limited to reduce brute-force attempts.
+- Upload throttling supports plan-aware limits and identity-aware keys.
+- Webhook signature verification uses captured raw request body.
+- Optional malware scanning now works for both memory and disk-backed uploads.
+- Privacy-minimized activity logging can mask email and hash IP via `PRIVACY_MINIMIZE_LOGS=true`.
+
+### CI/CD protections
+
+- GitHub Actions workflow for:
+  - secret scanning (`gitleaks`)
+  - dependency review on pull requests
+  - client build + high-severity dependency audits
+- CodeQL static analysis workflow for JavaScript.
+- Dependabot updates for server/client npm dependencies and GitHub Actions.
+
+### Firewall and edge recommendations
+
+- On Vercel, keep `ALLOW_VERCEL_PREVIEWS=false` in production unless you explicitly need preview domains.
+- If using Cloudflare/WAF, enforce:
+  - managed WAF rules
+  - bot protection
+  - request size limits aligned with `MULTER_MAX_FILE_SIZE_BYTES`
+  - geo/IP rules for sensitive admin/payment paths when appropriate
 
 ## Status
 

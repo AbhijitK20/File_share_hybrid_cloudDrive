@@ -10,19 +10,27 @@ const router = express.Router();
 
 // Use Memory Storage for Supabase Cloud conversion
 const storage = multer.memoryStorage();
+const defaultMulterMaxBytes = process.env.VERCEL ? 4 * 1024 * 1024 : 5 * 1024 * 1024 * 1024;
+const configuredMulterMaxBytes = Number(process.env.MULTER_MAX_FILE_SIZE_BYTES || defaultMulterMaxBytes);
+const multerMaxFileSize = Number.isFinite(configuredMulterMaxBytes) && configuredMulterMaxBytes > 0
+  ? configuredMulterMaxBytes
+  : defaultMulterMaxBytes;
+const maxFilesPerUpload = Number.isFinite(Number(process.env.MAX_FILES_PER_UPLOAD))
+  ? Math.max(1, Number(process.env.MAX_FILES_PER_UPLOAD))
+  : 20;
 
 const upload = multer({
   storage,
   limits: {
-    fileSize: 5 * 1024 * 1024 * 1024, // 5 GB limit
+    fileSize: multerMaxFileSize,
   },
 });
 
 // Routes
 router.post('/upload', 
-  uploadLimiter,
   optionalAuth, 
-  upload.array('files', 20),
+  uploadLimiter,
+  upload.array('files', maxFilesPerUpload),
   fileValidationMiddleware,
   uploadFiles
 );

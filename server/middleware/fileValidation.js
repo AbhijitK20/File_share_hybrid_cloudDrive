@@ -1,6 +1,6 @@
 const path = require('path');
 const fs = require('fs');
-const { scanFile } = require('../utils/malwareScan');
+const { scanFile, scanBuffer } = require('../utils/malwareScan');
 
 let fileTypeModulePromise = null;
 
@@ -134,8 +134,11 @@ async function validateFile(file) {
   }
 
   // 6. Optional malware scan
-  if (file.path) {
-    const scan = await scanFile(file.path);
+  if (file.path || file.buffer) {
+    const scan = file.path
+      ? await scanFile(file.path)
+      : await scanBuffer(file.buffer, file.originalname);
+
     if (scan.scanned && !scan.clean) {
       return {
         isValid: false,

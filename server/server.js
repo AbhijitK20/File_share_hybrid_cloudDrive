@@ -17,6 +17,11 @@ const { requestSecurityGuard } = require('./middleware/securityGuard');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const allowVercelPreviewOrigins = String(process.env.ALLOW_VERCEL_PREVIEWS || 'false') === 'true';
+
+if (process.env.VERCEL || String(process.env.TRUST_PROXY || 'false') === 'true') {
+  app.set('trust proxy', 1);
+}
 
 app.use(helmet({
   contentSecurityPolicy: {
@@ -85,7 +90,9 @@ const corsOptions = {
 
     try {
       const hostname = new URL(normalizedOrigin || origin).hostname;
-      if (hostname.endsWith('.vercel.app')) return callback(null, true);
+      if (allowVercelPreviewOrigins && hostname.endsWith('.vercel.app')) {
+        return callback(null, true);
+      }
     } catch (error) {
       // Ignore malformed origin and fall through to deny.
     }
@@ -97,8 +104,17 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
+const rawBodySaver = (req, res, buf) => {
+  if (!buf || buf.length === 0) return;
+
+  const requestPath = String(req.originalUrl || req.url || '');
+  if (requestPath.startsWith('/api/payment/webhook')) {
+    req.rawBody = Buffer.from(buf);
+  }
+};
+
 app.use(cors(corsOptions));
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '50mb', verify: rawBodySaver }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(requestSecurityGuard);
 

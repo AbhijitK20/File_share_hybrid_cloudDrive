@@ -1,5 +1,6 @@
 const supabase = require('../utils/supabase');
 const { logger } = require('../utils/logger');
+const { toPrivacySafeActivityIdentity } = require('../utils/privacy');
 
 const ALLOWED_VISIBILITY = ['public', 'private'];
 const ALLOWED_ACCESS_MODES = ['public', 'allowlist', 'blocklist'];
@@ -37,14 +38,19 @@ async function getOwnedFile(fileId, ownerId) {
 
 async function logActivity({ fileId, actorUserId, actorEmail, action, details, ipAddress }) {
   try {
+    const privacyIdentity = toPrivacySafeActivityIdentity({
+      email: actorEmail,
+      ipAddress,
+    });
+
     await supabase.from('file_activity').insert([
       {
         file_id: fileId,
         actor_user_id: actorUserId || null,
-        actor_email: actorEmail || null,
+        actor_email: privacyIdentity.actorEmail,
         action,
         details: details || null,
-        ip_address: ipAddress || null,
+        ip_address: privacyIdentity.ipAddress,
       },
     ]);
   } catch (error) {

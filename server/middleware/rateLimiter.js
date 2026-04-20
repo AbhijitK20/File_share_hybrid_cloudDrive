@@ -1,16 +1,20 @@
 const rateLimit = require('express-rate-limit');
 
+const isPremiumUser = (req) => String(req.user?.plan || '').toLowerCase() === 'premium';
+
+const getClientIdentifier = (req) => {
+  if (req.user?.id) return `user:${req.user.id}`;
+  return req.ip;
+};
+
 // Rate limiter for file uploads
 const uploadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // 20 uploads per IP per 15 minutes
+  max: (req) => (isPremiumUser(req) ? 120 : 20), // Higher allowance for premium users
+  keyGenerator: getClientIdentifier,
   message: 'Too many uploads from this IP, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => {
-    // Skip rate limiting for premium users (if they have auth token with premium flag)
-    return req.user?.isPremium === true;
-  }
 });
 
 // Rate limiter for file access/preview (stricter for brute force protection)
@@ -38,6 +42,7 @@ const authLimiter = rateLimit({
   message: 'Too many login attempts, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
+  skipSuccessfulRequests: true,
   skip: (req) => req.method !== 'POST'
 });
 

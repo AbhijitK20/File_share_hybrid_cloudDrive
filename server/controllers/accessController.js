@@ -2,6 +2,7 @@ const supabase = require('../utils/supabase');
 const { logFileAccess, logger } = require('../utils/logger');
 const encryptionUtils = require('../utils/encryption');
 const compressionUtils = require('../utils/compression');
+const { toPrivacySafeActivityIdentity } = require('../utils/privacy');
 
 function sanitizeFilename(filename) {
   return filename.replace(/[\r\n\0]/g, '').replace(/[\x00-\x1F\x7F]/g, '').slice(0, 255);
@@ -67,14 +68,19 @@ function canAccessFile(file, userId, permissionEntry) {
 
 async function logActivity({ fileId, actorUserId, actorEmail, action, details, req }) {
   try {
+    const privacyIdentity = toPrivacySafeActivityIdentity({
+      email: actorEmail,
+      ipAddress: getClientIp(req),
+    });
+
     await supabase.from('file_activity').insert([
       {
         file_id: fileId,
         actor_user_id: actorUserId || null,
-        actor_email: actorEmail || null,
+        actor_email: privacyIdentity.actorEmail,
         action,
         details: details || null,
-        ip_address: getClientIp(req),
+        ip_address: privacyIdentity.ipAddress,
       },
     ]);
   } catch (error) {
