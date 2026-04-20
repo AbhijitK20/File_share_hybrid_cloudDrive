@@ -1,7 +1,29 @@
 import axios from 'axios';
 
-const envApiUrl = String(import.meta.env.VITE_API_URL || '').trim();
-const isLocalhostApi = /localhost|127\.0\.0\.1/i.test(envApiUrl);
+const trimTrailingSlash = (value = '') => String(value).replace(/\/+$/, '');
+
+const normalizeApiUrl = (value = '') => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  if (raw.startsWith('/')) {
+    return trimTrailingSlash(raw) || '/';
+  }
+
+  try {
+    const parsed = new URL(raw);
+    const normalizedPath =
+      parsed.pathname && parsed.pathname !== '/'
+        ? trimTrailingSlash(parsed.pathname)
+        : '/api';
+    return `${parsed.origin}${normalizedPath}`;
+  } catch {
+    return '';
+  }
+};
+
+const envApiUrl = normalizeApiUrl(import.meta.env.VITE_API_URL);
+const isLocalhostApi = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(envApiUrl);
 const API_BASE = import.meta.env.PROD
   ? (envApiUrl && !isLocalhostApi ? envApiUrl : '/api')
   : (envApiUrl || 'http://localhost:5000/api');

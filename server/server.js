@@ -29,27 +29,62 @@ app.use(helmet({
   },
 }));
 
-const configuredClientOrigins = String(process.env.CLIENT_URL || '')
+const splitEnvList = (value = '') => String(value || '')
   .split(',')
-  .map((value) => value.trim())
+  .map((item) => item.trim())
+  .filter(Boolean);
+
+const toOrigin = (value = '') => {
+  const rawValue = String(value || '').trim().replace(/\/+$/, '');
+  if (!rawValue || rawValue === 'null') return '';
+
+  const hasProtocol = /^https?:\/\//i.test(rawValue);
+  const isLocalhost = /^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(rawValue);
+  const candidate = hasProtocol
+    ? rawValue
+    : `${isLocalhost ? 'http' : 'https'}://${rawValue}`;
+
+  try {
+    return new URL(candidate).origin;
+  } catch (error) {
+    return '';
+  }
+};
+
+const configuredClientOrigins = [
+  ...splitEnvList(process.env.CLIENT_URL),
+  ...splitEnvList(process.env.CLIENT_ORIGINS),
+  ...splitEnvList(process.env.FRONTEND_URL),
+]
+  .map(toOrigin)
+  .filter(Boolean);
+
+const vercelRuntimeOrigins = [
+  process.env.VERCEL_URL,
+  process.env.VERCEL_BRANCH_URL,
+  process.env.VERCEL_PROJECT_PRODUCTION_URL,
+]
+  .map(toOrigin)
   .filter(Boolean);
 
 const allowedOrigins = new Set([
   'http://localhost:5173',
+  'http://127.0.0.1:5173',
   ...configuredClientOrigins,
+  ...vercelRuntimeOrigins,
 ]);
-
-if (process.env.VERCEL_URL) {
-  allowedOrigins.add(`https://${process.env.VERCEL_URL}`);
-}
 
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.has(origin)) return callback(null, true);
+
+    const normalizedOrigin = toOrigin(origin);
+    if (normalizedOrigin && allowedOrigins.has(normalizedOrigin)) {
+      return callback(null, true);
+    }
 
     try {
-      const hostname = new URL(origin).hostname;
+      const hostname = new URL(normalizedOrigin || origin).hostname;
       if (hostname.endsWith('.vercel.app')) return callback(null, true);
     } catch (error) {
       // Ignore malformed origin and fall through to deny.

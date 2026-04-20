@@ -20,11 +20,69 @@ const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
 const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
 const hashOtp = (code) =>
   crypto.createHash('sha256').update(`${code}:${process.env.JWT_SECRET}`).digest('hex');
-const getGoogleClientIds = () =>
-  String(process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '')
-    .split(',')
-    .map((id) => id.trim())
+const splitEnvList = (value = '') =>
+  String(value || '')
+    .split(/[\n,]/)
+    .map((item) => item.trim())
     .filter(Boolean);
+
+const normalizeOrigin = (value = '') => {
+  const rawValue = String(value || '').trim().replace(/\/+$/, '');
+  if (!rawValue || rawValue === 'null') return '';
+
+  const withProtocol = /^https?:\/\//i.test(rawValue)
+    ? rawValue
+    : `https://${rawValue}`;
+
+  try {
+    return new URL(withProtocol).origin;
+  } catch (error) {
+    return '';
+  }
+};
+
+const getGoogleClientIdMap = () => {
+  const mapping = new Map();
+  const mappingEntries = splitEnvList(
+    process.env.GOOGLE_CLIENT_ID_MAP || process.env.GOOGLE_CLIENT_ID_BY_ORIGIN
+  );
+
+  for (const entry of mappingEntries) {
+    const separatorIndex = entry.indexOf('=');
+    if (separatorIndex <= 0) continue;
+
+    const origin = normalizeOrigin(entry.slice(0, separatorIndex));
+    const clientId = entry.slice(separatorIndex + 1).trim();
+    if (!origin || !clientId) continue;
+
+    mapping.set(origin, clientId);
+  }
+
+  return mapping;
+};
+
+const getGoogleClientIds = () => {
+  const configuredIds = [
+    ...splitEnvList(process.env.GOOGLE_CLIENT_ID),
+    ...splitEnvList(process.env.GOOGLE_CLIENT_IDS),
+    ...splitEnvList(process.env.VITE_GOOGLE_CLIENT_ID),
+    ...Array.from(getGoogleClientIdMap().values()),
+  ];
+
+  return [...new Set(configuredIds)];
+};
+
+const selectGoogleClientId = (requestOrigin = '') => {
+  const normalizedRequestOrigin = normalizeOrigin(requestOrigin);
+  const clientIdMap = getGoogleClientIdMap();
+
+  if (normalizedRequestOrigin && clientIdMap.has(normalizedRequestOrigin)) {
+    return clientIdMap.get(normalizedRequestOrigin);
+  }
+
+  const clientIds = getGoogleClientIds();
+  return clientIds[0] || '';
+};
 
 exports.getGoogleConfig = async (req, res) => {
   const googleClientIds = getGoogleClientIds();
@@ -32,9 +90,11 @@ exports.getGoogleConfig = async (req, res) => {
     return res.json({ enabled: false });
   }
 
+  const selectedClientId = selectGoogleClientId(req.headers.origin || '');
+
   return res.json({
     enabled: true,
-    clientId: googleClientIds[0],
+    clientId: selectedClientId || googleClientIds[0],
   });
 };
 

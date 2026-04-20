@@ -65,10 +65,10 @@ SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 JWT_SECRET=
 PORT=5000
-CLIENT_URL=http://localhost:5173
+CLIENT_URL=http://localhost:5173,https://your-production-app.vercel.app
 
 # Frontend
-VITE_API_URL=http://localhost:5000/api
+VITE_API_URL=/api
 VITE_RAZORPAY_KEY_ID=
 VITE_GOOGLE_CLIENT_ID=
 
@@ -87,6 +87,8 @@ SMTP_FROM=
 
 # Google sign-in
 GOOGLE_CLIENT_ID=
+# Optional: map origin-specific Google client IDs
+# GOOGLE_CLIENT_ID_MAP=https://your-production-app.vercel.app=xxx.apps.googleusercontent.com,https://your-preview-app.vercel.app=yyy.apps.googleusercontent.com
 
 # Optional logging/security
 LOG_LEVEL=debug
@@ -94,6 +96,26 @@ ENABLE_MALWARE_SCAN=false
 MALWARE_SCANNER_PATH=clamscan
 MALWARE_SCAN_TIMEOUT_MS=20000
 ```
+
+## Vercel Deployment Checklist (Google Sign-In)
+
+Set these values in Vercel Project Settings -> Environment Variables (Production and Preview as needed):
+
+- `GOOGLE_CLIENT_ID` (server runtime)
+- `VITE_GOOGLE_CLIENT_ID` (frontend build/runtime fallback)
+- `CLIENT_URL` with your allowed frontend origins (comma-separated)
+- `VITE_API_URL=/api` when frontend and backend are deployed from the same Vercel project
+
+Google Cloud Console (OAuth Web Client) must include exact Authorized JavaScript origins:
+
+- `https://your-production-app.vercel.app`
+- `https://your-custom-domain.com` (if used)
+
+Important:
+
+- Use origin only (no path, no trailing slash)
+- Keep `GOOGLE_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` aligned unless you intentionally use origin-specific IDs
+- If you use different IDs for production vs preview, use `GOOGLE_CLIENT_ID_MAP`
 
 ## Local Development
 
